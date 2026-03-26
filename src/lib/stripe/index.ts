@@ -9,6 +9,7 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export const PLANS = {
   free: {
+    id: 'free',
     name: 'Free',
     maxEmployees: 10,
     maxSchedules: 3,
@@ -19,6 +20,7 @@ export const PLANS = {
     stripePriceIdYearly: null,
   },
   starter: {
+    id: 'starter',
     name: 'Starter',
     maxEmployees: 25,
     maxSchedules: 10,
@@ -29,6 +31,7 @@ export const PLANS = {
     stripePriceIdYearly: process.env.STRIPE_PRICE_STARTER_YEARLY,
   },
   pro: {
+    id: 'pro',
     name: 'Pro',
     maxEmployees: 75,
     maxSchedules: -1, // unlimited
@@ -39,6 +42,7 @@ export const PLANS = {
     stripePriceIdYearly: process.env.STRIPE_PRICE_PRO_YEARLY,
   },
   business: {
+    id: 'business',
     name: 'Business',
     maxEmployees: -1, // unlimited
     maxSchedules: -1,
