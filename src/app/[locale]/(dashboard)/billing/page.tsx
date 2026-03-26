@@ -92,11 +92,11 @@ export default async function BillingPage() {
               <div className="mb-4">
                 <h3 className="font-semibold">{plan.name}</h3>
                 <div className="mt-2">
-                  {plan.priceMonthly === 0 ? (
+                  {plan.monthlyPrice === 0 ? (
                     <p className="text-2xl font-bold">Free</p>
                   ) : (
                     <div>
-                      <span className="text-2xl font-bold">{plan.priceMonthly} RON</span>
+                      <span className="text-2xl font-bold">{plan.monthlyPrice} RON</span>
                       <span className="text-gray-500 text-sm"> / month</span>
                     </div>
                   )}
@@ -112,15 +112,15 @@ export default async function BillingPage() {
                 ))}
               </ul>
 
-              {!isCurrent && plan.priceMonthly > 0 && (
+              {!isCurrent && plan.monthlyPrice > 0 && (
                 <UpgradeButton
                   planId={plan.id}
-                  priceId={plan.stripePriceMonthly ?? ''}
+                  priceId={plan.stripePriceIdMonthly ?? ''}
                   organizationId={org?.id}
                 />
               )}
 
-              {isCurrent && plan.priceMonthly === 0 && (
+              {isCurrent && plan.monthlyPrice === 0 && (
                 <p className="text-xs text-center text-gray-400">Your current plan</p>
               )}
             </div>
