@@ -74,7 +74,7 @@ export interface ShiftDefinition {
   id: string
   organization_id: string
   name: string
-  type: ShiftType
+  shift_type: ShiftType
   start_time: string  // HH:MM
   end_time: string    // HH:MM
   color: string       // hex color for UI
