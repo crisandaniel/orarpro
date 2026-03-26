@@ -45,6 +45,7 @@ export interface Employee {
   email: string | null
   phone: string | null
   experience_level: ExperienceLevel
+  color: string | null
   is_active: boolean
   created_at: string
 }
