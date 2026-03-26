@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
 import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
-import './globals.css'
+import '../globals.css'
 
 export const metadata: Metadata = {
   title: {
