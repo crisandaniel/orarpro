@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/client'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PLANS, trialDaysRemaining, isTrialActive } from '@/lib/stripe/config'
 import { Check } from 'lucide-react'

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/client'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { SidebarNav } from '@/components/shared/SidebarNav'
 import { TrialBanner } from '@/components/billing/TrialBanner'
 import { trialDaysRemaining, isTrialActive } from '@/lib/stripe/config'

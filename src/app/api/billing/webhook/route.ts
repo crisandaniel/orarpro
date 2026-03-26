@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { stripe, getPlanByPriceId } from '@/lib/stripe/config'
-import { createAdminClient } from '@/lib/supabase/client'
+import { createAdminClient } from '@/lib/supabase/server'
 import type Stripe from 'stripe'
 
 export async function POST(request: Request) {

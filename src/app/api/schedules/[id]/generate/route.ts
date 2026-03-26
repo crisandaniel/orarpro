@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/client'
+import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
 import { generateSchedule } from '@/lib/algorithms/generate'
 import { analyzeScheduleWithAI } from '@/lib/ai/analyze'
 import { getHolidaysInRange } from '@/lib/holidays'
