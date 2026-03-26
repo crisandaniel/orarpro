@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { PLANS, trialDaysRemaining, isTrialActive } from '@/lib/stripe/config'
+import { PLANS, trialDaysRemaining, isTrialActive } from '@/lib/stripe/index'
 import { Check } from 'lucide-react'
 import { UpgradeButton } from '@/components/billing/UpgradeButton'
 

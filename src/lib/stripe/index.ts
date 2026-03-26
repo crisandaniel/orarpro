@@ -1,7 +1,7 @@
 import Stripe from 'stripe'
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-04-10',
+  apiVersion: '2023-10-16',
   typescript: true,
 })
 
@@ -122,4 +122,29 @@ export async function createPortalSession(customerId: string, returnUrl: string)
     customer: customerId,
     return_url: returnUrl,
   })
+}
+
+// ─── Helper: get plan by Stripe price ID ─────────────────────────────────────
+
+export function getPlanByPriceId(priceId: string): typeof PLANS[PlanKey] | undefined {
+  return Object.values(PLANS).find(
+    (plan) =>
+      plan.stripePriceIdMonthly === priceId ||
+      plan.stripePriceIdYearly === priceId
+  )
+}
+
+// ─── Helper: trial days remaining ────────────────────────────────────────────
+
+export function trialDaysRemaining(trialEndsAt: string | null): number {
+  if (!trialEndsAt) return 0
+  const diff = new Date(trialEndsAt).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+}
+
+// ─── Helper: is trial active ──────────────────────────────────────────────────
+
+export function isTrialActive(trialEndsAt: string | null): boolean {
+  if (!trialEndsAt) return false
+  return new Date(trialEndsAt) > new Date()
 }
