@@ -105,6 +105,5 @@ export async function POST(request: Request) {
 }
 
 // Disable body parsing — Stripe needs the raw body for signature verification
-export const config = {
-  api: { bodyParser: false },
-}
+// In App Router, body parsing is disabled by default when using request.text()
+export const dynamic = 'force-dynamic'
