@@ -39,16 +39,6 @@ const SHIFT_COLORS = [
   '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16',
 ]
 
-const DEFAULT_SHIFTS = {
-  shifts: [
-    {
-      morning: { name: 'Morning', shift_type: 'morning' as const, start_time: '06:00', end_time: '14:00', crosses_midnight: false, color: '#10b981', slots_per_day: 1 },
-      afternoon: { name: 'Afternoon', shift_type: 'afternoon' as const, start_time: '14:00', end_time: '22:00', crosses_midnight: false, color: '#f59e0b', slots_per_day: 1 },
-      night: { name: 'Night', shift_type: 'night' as const, start_time: '22:00', end_time: '06:00', crosses_midnight: true, color: '#6366f1', slots_per_day: 1 },
-    }
-  ]
-}
-
 export default function ScheduleSetupPage() {
   const router = useRouter()
   const params = useParams()
@@ -279,8 +269,8 @@ export default function ScheduleSetupPage() {
             {[
               { name: 'min_employees_per_shift' as const, label: 'Min employees / shift', min: 1, max: 50, disabled: false },
               { name: 'max_consecutive_days' as const, label: 'Max consecutive days', min: 1, max: 7, disabled: enforceLegal },
-              { name: 'min_rest_hours' as const, label: 'Min rest between shifts (h)', min: 0, max: 24, disabled: enforceLocal },
-              { name: 'max_weekly_hours' as const, label: 'Max hours / week', min: 1, max: 80, disabled: enforceLocal },
+              { name: 'min_rest_hours' as const, label: 'Min rest between shifts (h)', min: 0, max: 24, disabled: enforceLegal },
+              { name: 'max_weekly_hours' as const, label: 'Max hours / week', min: 1, max: 80, disabled: enforceLegal },
               { name: 'max_night_shifts_per_week' as const, label: 'Max night shifts / week', min: 0, max: 7, disabled: false },
             ].map(({ name, label, min, max, disabled }) => (
               <div key={name}>
@@ -317,4 +307,3 @@ export default function ScheduleSetupPage() {
 }
 
 // Workaround for disabled state in map
-const enforceLocal = false

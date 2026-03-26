@@ -6,7 +6,7 @@ import { getHolidaysInRange } from '@/lib/holidays'
 import { format } from 'date-fns'
 
 interface Props {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default async function ScheduleViewPage({ params }: Props) {
