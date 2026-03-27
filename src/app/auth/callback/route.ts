@@ -1,3 +1,7 @@
+// Legacy OAuth callback (no locale prefix) — kept for backwards compatibility.
+// Prefer the locale-aware version at [locale]/auth/callback/route.ts.
+// Used by: old redirect URLs still configured in Supabase dashboard.
+
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 

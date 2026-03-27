@@ -1,3 +1,13 @@
+// Stripe client + complete plan configuration.
+// PLANS: defines free/starter/pro/business with prices, employee limits, feature lists.
+// Key helpers:
+//   getPlanByPriceId(priceId): used in webhook to identify which plan was purchased
+//   trialDaysRemaining(trialEndsAt): days left in trial
+//   isTrialActive(trialEndsAt): boolean trial status check
+//   createCheckoutSession(): creates Stripe hosted checkout with 14-day trial
+//   createPortalSession(): opens Stripe billing portal for subscription management
+// Used by: billing page, create-checkout route, webhook handler, dashboard layout.
+
 import Stripe from 'stripe'
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -7,7 +17,11 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 // ─── Plan Configuration ───────────────────────────────────────────────────────
 
-export const PLANS = {
+// ── Plan definitions ─────────────────────────────────────────────────────────
+// Single source of truth for all plan limits and features.
+// max_employees: -1 means unlimited.
+// stripePriceId*: must match price IDs created in Stripe dashboard.
+  export const PLANS = {
   free: {
     id: 'free',
     name: 'Free',
@@ -58,7 +72,10 @@ export type PlanKey = keyof typeof PLANS
 
 // ─── Trial Configuration ──────────────────────────────────────────────────────
 
-export const TRIAL_DAYS = 14
+// ── Trial configuration ──────────────────────────────────────────────────────
+// All paid plans get a 14-day free trial when first subscribed.
+// Free plan has no trial and never expires.
+  export const TRIAL_DAYS = 14
 
 // ─── Helper: check if org can add more employees ──────────────────────────────
 
@@ -90,7 +107,10 @@ export function isActivePlan(org: {
 
 // ─── Create Stripe checkout session ──────────────────────────────────────────
 
-export async function createCheckoutSession({
+// ── Stripe Checkout session factory ─────────────────────────────────────────
+// Creates a hosted Stripe checkout page. Trial is applied automatically.
+// On success, Stripe calls the webhook → checkout.session.completed.
+  export async function createCheckoutSession({
   customerId,
   priceId,
   organizationId,

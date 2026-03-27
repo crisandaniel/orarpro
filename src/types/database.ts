@@ -1,3 +1,8 @@
+// Supabase database types — Row, Insert, Update for each table.
+// Normally auto-generated with: npx supabase gen types typescript --project-id YOUR_ID
+// Currently maintained manually to stay in sync with migrations in supabase/migrations/.
+// Used by: lib/algorithms/shift-generator.ts and Supabase client calls.
+
 // Auto-generated types from Supabase schema
 // Run: npx supabase gen types typescript --project-id YOUR_PROJECT_ID > src/types/database.ts
 

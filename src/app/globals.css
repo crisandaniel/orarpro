@@ -63,3 +63,41 @@
     background: inherit;
   }
 }
+
+/* ── Print / PDF styles ──────────────────────────────────────────────────── */
+@media print {
+  /* Hide sidebar, header, action buttons — everything except the grid */
+  aside,
+  nav,
+  .print-hide { display: none !important; }
+
+  /* Remove padding/margin from layout */
+  body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
+  main { padding: 0 !important; margin: 0 !important; }
+
+  /* Keep shift colors accurate in print */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+  /* Prevent rows splitting across pages */
+  tr { page-break-inside: avoid; }
+
+  @page {
+    margin: 10mm;
+    size: landscape;
+  }
+}
+
+/* Print-only elements — hidden on screen, visible in print */
+.print-only { display: none; }
+.print-all-weeks { display: none; }
+
+@media print {
+  .print-only { display: block !important; }
+
+  /* Hide the interactive paginated grid, show the full all-weeks version */
+  .schedule-interactive { display: none !important; }
+  .print-all-weeks { display: block !important; }
+}
+
+/* ── Schedule grid cell hover effects ───────────────────────────────────── */
+td:hover .edit-hint { opacity: 1 !important; }

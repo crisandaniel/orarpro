@@ -1,3 +1,7 @@
+// Alternative shift generator using Supabase Database types directly.
+// More type-safe alternative to generate.ts for shift-based schedules.
+// Used by: /api/schedules/[id]/generate.
+
 import { addDays, format, differenceInHours, parseISO, getDay } from 'date-fns'
 import type { Database } from '@/types/database'
 

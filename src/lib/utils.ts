@@ -1,3 +1,9 @@
+// Shared utility functions used throughout the app.
+// cn(...classes): merges Tailwind class names safely (clsx + tailwind-merge).
+// formatHours(h): formats decimal hours as '8h 30m'.
+// getInitials(name): extracts initials from a full name ('Ion Popescu' → 'IP').
+// Used by: components for class merging and display formatting.
+
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 

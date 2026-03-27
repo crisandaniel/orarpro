@@ -1,5 +1,11 @@
 'use client'
 
+// Client button that initiates Stripe Checkout when clicked.
+// Calls POST /api/billing/create-checkout, then redirects to Stripe checkout page.
+// Used by: billing/page.tsx for each paid plan card.
+
+
+
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'

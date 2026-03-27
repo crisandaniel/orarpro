@@ -1,23 +1,28 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+// Organization setup page — shown after first login when user has no organization.
+// Calls POST /api/organizations to create org + owner membership server-side.
+// Dashboard layout redirects here automatically if org is missing.
+// Used by: newly registered users.
+
+
+
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
 
 const orgSchema = z.object({
-  name: z.string().min(2, 'Organization name is required'),
+  name: z.string().min(2, 'Numele organizației este obligatoriu'),
   country_code: z.string().min(2),
 })
 
 type OrgForm = z.infer<typeof orgSchema>
 
 export default function SetupOrganizationPage() {
-  const router = useRouter()
-  const supabase = createClient()
+  const [done, setDone] = useState(false)
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<OrgForm>({
     resolver: zodResolver(orgSchema),
@@ -25,88 +30,108 @@ export default function SetupOrganizationPage() {
   })
 
   async function onSubmit(data: OrgForm) {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const locale = window.location.pathname.split('/')[1] || 'ro'
 
-    // Create organization
-    const { data: org, error: orgError } = await supabase
-      .from('organizations')
-      .insert({ name: data.name, country_code: data.country_code })
-      .select()
-      .single()
-
-    if (orgError || !org) {
-      toast.error('Failed to create organization')
-      return
-    }
-
-    // Add user as owner
-    const { error: memberError } = await supabase
-      .from('organization_members')
-      .insert({
-        organization_id: org.id,
-        user_id: user.id,
-        role: 'owner',
-        accepted_at: new Date().toISOString(),
+    let res: Response
+    try {
+      res = await fetch('/api/organizations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       })
-
-    if (memberError) {
-      toast.error('Failed to set up membership')
+    } catch (err) {
+      console.error('Fetch failed:', err)
+      toast.error(`Eroare de conexiune: ${err instanceof Error ? err.message : String(err)}`)
       return
     }
 
-    toast.success('Organization created!')
-    router.push('/dashboard')
-    router.refresh()
+    let result: any
+    try {
+      result = await res.json()
+    } catch (err) {
+      toast.error(`Răspuns invalid de la server (status: ${res.status})`)
+      return
+    }
+
+    if (!res.ok) {
+      toast.error(result.error ?? `Eroare server: ${res.status}`)
+      return
+    }
+
+    toast.success('Organizație creată!')
+    setDone(true)
+    setTimeout(() => {
+      window.location.href = `/${locale}/dashboard`
+    }, 800)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
+    <div className="min-h-screen flex items-center justify-center px-4"
+      style={{ background: '#f8f9fc' }}>
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-indigo-600">OrarPro</h1>
-          <p className="text-gray-500 mt-2">One last step — set up your organization</p>
+
+        <div className="flex items-center justify-center gap-2.5 mb-8">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: '#2563eb' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+              <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+            </svg>
+          </div>
+          <span className="text-lg font-medium" style={{ color: '#111827' }}>OrarPro</span>
         </div>
 
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-8">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <div className="bg-white rounded-2xl px-8 py-8" style={{ border: '0.5px solid #e5e7eb' }}>
+          <div className="mb-6">
+            <h2 className="text-xl font-medium mb-1" style={{ color: '#111827' }}>Configurează organizația</h2>
+            <p className="text-sm" style={{ color: '#6b7280' }}>Un singur pas rămas până la primul tău orar</p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Organization name</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: '#374151' }}>
+                Numele organizației
+              </label>
               <input
                 {...register('name')}
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ border: '0.5px solid #d1d5db', color: '#111827', background: '#fff' }}
                 placeholder="Restaurant Bella, Fabrica Nord, Liceul Teoretic..."
+                disabled={done}
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">Country</label>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: '#374151' }}>Țara</label>
               <select
                 {...register('country_code')}
-                className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled={done}
+                className="w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ border: '0.5px solid #d1d5db', color: '#111827', background: '#fff' }}
               >
-                <option value="RO">Romania</option>
-                <option value="DE">Germany</option>
-                <option value="FR">France</option>
-                <option value="ES">Spain</option>
-                <option value="IT">Italy</option>
-                <option value="GB">United Kingdom</option>
-                <option value="PL">Poland</option>
-                <option value="HU">Hungary</option>
+                <option value="RO">România</option>
+                <option value="DE">Germania</option>
+                <option value="FR">Franța</option>
+                <option value="ES">Spania</option>
+                <option value="IT">Italia</option>
+                <option value="GB">Regatul Unit</option>
+                <option value="PL">Polonia</option>
+                <option value="HU">Ungaria</option>
                 <option value="BG">Bulgaria</option>
-                <option value="US">United States</option>
+                <option value="US">Statele Unite</option>
               </select>
-              <p className="text-xs text-gray-400 mt-1">Used for public holiday detection</p>
+              <p className="text-xs mt-1" style={{ color: '#9ca3af' }}>
+                Folosit pentru detectarea automată a sărbătorilor legale
+              </p>
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              disabled={isSubmitting || done}
+              className="w-full py-2.5 px-4 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
+              style={{ background: '#2563eb' }}
             >
-              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              Continue to dashboard
+              {(isSubmitting || done) && <Loader2 className="w-4 h-4 animate-spin" />}
+              {done ? 'Se deschide dashboard-ul...' : 'Continuă spre dashboard'}
             </button>
           </form>
         </div>

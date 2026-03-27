@@ -1,136 +1,153 @@
+// Billing page — current plan info + 4 plan cards with features and prices.
+// Free plan is permanent (no expiry). Paid plans have 14-day trials.
+// UpgradeButton triggers Stripe Checkout.
+// Used by: nav link 'Abonament'.
+
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PLANS, trialDaysRemaining, isTrialActive } from '@/lib/stripe/index'
 import { Check } from 'lucide-react'
 import { UpgradeButton } from '@/components/billing/UpgradeButton'
+import { getTranslations } from 'next-intl/server'
 
-export default async function BillingPage() {
+export default async function BillingPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  const t = await getTranslations('billing')
+  const tf = await getTranslations('billing.features')
+
   const supabase = await createServerSupabaseClient()
-
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect(`/${locale}/login`)
 
   const { data: membership } = await supabase
-    .from('organization_members')
-    .select('organizations(*)')
-    .eq('user_id', user.id)
-    .single()
+    .from('organization_members').select('organizations(*)').eq('user_id', user.id).single()
 
   const org = membership?.organizations as any
   const currentPlan = org?.plan ?? 'free'
   const trialDays = trialDaysRemaining(org?.trial_ends_at)
   const trialActive = isTrialActive(org?.trial_ends_at)
-  const employeeCount = 0 // TODO: fetch actual count
+
+  const { count: employeeCount } = await supabase
+    .from('employees').select('id', { count: 'exact' })
+    .eq('organization_id', org?.id ?? '').eq('is_active', true)
 
   const plans = [
-    { ...PLANS.free, features: ['Up to 10 employees', 'Unlimited schedules', 'All constraint types'] },
-    { ...PLANS.starter, features: ['Up to 25 employees', 'Unlimited schedules', 'AI suggestions', 'PDF export'] },
-    { ...PLANS.pro, features: ['Up to 75 employees', 'Everything in Starter', 'Multiple locations', 'Priority support'] },
-    { ...PLANS.business, features: ['Unlimited employees', 'Everything in Pro', 'Custom constraints', 'Dedicated support'] },
+    {
+      id: 'free', name: t('free'), price: '0', period: '',
+      desc: t('forSmall'),
+      features: [tf('employees10'), tf('schedules'), tf('allConstraints'), tf('holidays')],
+      stripePriceIdMonthly: null,
+    },
+    {
+      id: 'starter', name: t('starter'), price: '29', period: '/lună',
+      desc: t('forGrowing'),
+      features: [tf('employees25'), tf('schedules'), tf('aiSuggestions'), tf('export')],
+      stripePriceIdMonthly: PLANS.starter.stripePriceIdMonthly,
+    },
+    {
+      id: 'pro', name: t('pro'), price: '69', period: '/lună',
+      desc: t('forLarge'),
+      features: [tf('employees75'), tf('aiSuggestions'), tf('multiLocation'), tf('support')],
+      stripePriceIdMonthly: PLANS.pro.stripePriceIdMonthly,
+    },
+    {
+      id: 'business', name: t('business'), price: '149', period: '/lună',
+      desc: t('unlimited'),
+      features: [tf('employeesUnlimited'), tf('api'), tf('dedicatedManager'), tf('support')],
+      stripePriceIdMonthly: PLANS.business.stripePriceIdMonthly,
+    },
   ]
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold">Billing & Plans</h1>
-        {trialActive && (
-          <p className="text-amber-600 text-sm mt-1">
-            Your free trial ends in {trialDays} days. Upgrade to keep your data.
-          </p>
-        )}
+        <h1 className="text-2xl font-medium" style={{ color: '#111827' }}>{t('title')}</h1>
+        <p className="text-sm mt-1" style={{ color: '#6b7280' }}>{t('subtitle')}</p>
       </div>
 
-      {/* Current plan */}
-      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-500">Current plan</p>
-            <p className="text-xl font-semibold capitalize mt-1">{currentPlan}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-500">Employees</p>
-            <p className="text-xl font-semibold mt-1">
-              {employeeCount} / {org?.max_employees ?? 10}
+      <div className="bg-white rounded-xl p-5 mb-6 flex items-center justify-between"
+        style={{ border: '0.5px solid #e5e7eb' }}>
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wide mb-1" style={{ color: '#9ca3af' }}>
+            {t('currentPlan')}
+          </p>
+          <p className="text-xl font-medium capitalize" style={{ color: '#111827' }}>
+            {plans.find(p => p.id === currentPlan)?.name ?? currentPlan}
+          </p>
+          {trialActive && currentPlan !== 'free' ? (
+            <p className="text-xs mt-1" style={{ color: '#d97706' }}>
+              {t('trialLeft', { days: trialDays })}
             </p>
-          </div>
+          ) : currentPlan === 'free' ? (
+            <p className="text-xs mt-1" style={{ color: '#059669' }}>{t('freePermanent')}</p>
+          ) : null}
+        </div>
+        <div className="text-right">
+          <p className="text-xs font-medium mb-1" style={{ color: '#9ca3af' }}>{t('activeEmployees')}</p>
+          <p className="text-xl font-medium" style={{ color: '#111827' }}>
+            {employeeCount ?? 0} / {org?.max_employees ?? 10}
+          </p>
         </div>
       </div>
 
-      {/* Plans grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {plans.map((plan) => {
           const isCurrent = plan.id === currentPlan
           const isPopular = plan.id === 'pro'
-
           return (
-            <div
-              key={plan.id}
-              className={`relative bg-white dark:bg-gray-900 rounded-xl border-2 p-5 flex flex-col ${
-                isPopular
-                  ? 'border-indigo-600'
-                  : isCurrent
-                  ? 'border-green-500'
-                  : 'border-gray-200 dark:border-gray-800'
-              }`}
-            >
-              {isPopular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full font-medium">
-                    Popular
-                  </span>
-                </div>
-              )}
+            <div key={plan.id} className="bg-white rounded-xl p-5 flex flex-col relative"
+              style={{ border: isPopular ? '2px solid #2563eb' : isCurrent ? '2px solid #059669' : '0.5px solid #e5e7eb' }}>
 
+              {isPopular && !isCurrent && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  style={{ background: '#2563eb', color: '#fff' }}>{t('popular')}</div>
+              )}
               {isCurrent && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-green-500 text-white text-xs px-3 py-1 rounded-full font-medium">
-                    Current
-                  </span>
-                </div>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-xs font-medium"
+                  style={{ background: '#059669', color: '#fff' }}>{t('activeBadge')}</div>
               )}
 
-              <div className="mb-4">
-                <h3 className="font-semibold">{plan.name}</h3>
-                <div className="mt-2">
-                  {plan.monthlyPrice === 0 ? (
-                    <p className="text-2xl font-bold">Free</p>
-                  ) : (
-                    <div>
-                      <span className="text-2xl font-bold">{plan.monthlyPrice} RON</span>
-                      <span className="text-gray-500 text-sm"> / month</span>
-                    </div>
-                  )}
-                </div>
+              <div className="mb-3">
+                <h3 className="font-medium text-sm" style={{ color: '#111827' }}>{plan.name}</h3>
+                <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{plan.desc}</p>
               </div>
 
-              <ul className="space-y-2 flex-1 mb-5">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400">
-                    <Check className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
-                    {feature}
+              <div className="flex items-baseline gap-0.5 mb-1">
+                <span className="text-2xl font-medium" style={{ color: '#111827' }}>{plan.price}</span>
+                {plan.price !== '0' && <span className="text-xs" style={{ color: '#9ca3af' }}>RON</span>}
+                <span className="text-xs ml-0.5" style={{ color: '#9ca3af' }}>{plan.period}</span>
+              </div>
+              {plan.price === '0' && (
+                <p className="text-xs mb-3" style={{ color: '#059669' }}>{t('freePermanentBadge')}</p>
+              )}
+
+              <ul className="space-y-1.5 flex-1 mb-4">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-start gap-1.5 text-xs" style={{ color: '#374151' }}>
+                    <Check className="w-3 h-3 mt-0.5 shrink-0" style={{ color: '#059669' }} />
+                    {f}
                   </li>
                 ))}
               </ul>
 
-              {!isCurrent && plan.monthlyPrice > 0 && (
-                <UpgradeButton
-                  planId={plan.id}
-                  priceId={plan.stripePriceIdMonthly ?? ''}
-                  organizationId={org?.id}
-                />
+              {!isCurrent && plan.price !== '0' && plan.stripePriceIdMonthly && (
+                <UpgradeButton planId={plan.id} priceId={plan.stripePriceIdMonthly} organizationId={org?.id} />
               )}
-
-              {isCurrent && plan.monthlyPrice === 0 && (
-                <p className="text-xs text-center text-gray-400">Your current plan</p>
+              {isCurrent && (
+                <p className="text-xs text-center" style={{ color: '#9ca3af' }}>{t('yourPlan')}</p>
+              )}
+              {!isCurrent && plan.price === '0' && (
+                <p className="text-xs text-center" style={{ color: '#9ca3af' }}>{t('downgrade')}</p>
               )}
             </div>
           )
         })}
       </div>
-
-      <p className="text-xs text-gray-400 text-center mt-6">
-        All prices in RON. Cancel anytime. 14-day free trial on paid plans.
-      </p>
+      <p className="text-xs text-center mt-5" style={{ color: '#9ca3af' }}>{t('priceNote')}</p>
     </div>
   )
 }

@@ -1,3 +1,13 @@
+// Core schedule generation algorithm — greedy constraint satisfaction.
+// Input: schedule config, employees, shift definitions, constraints, leaves, holidays.
+// Algorithm:
+//   Phase 1 — Build working date list (skip weekends, holidays)
+//   Phase 2 — For each date x shift, sort employees by least hours assigned,
+//             check hard constraints (rest, consecutive days, weekly hours,
+//             pair rules, seniority), assign first valid employee.
+// Output: assignments array, violations list, hours-per-employee stats.
+// Used by: /api/schedules/[id]/generate.
+
 import { addDays, format, differenceInMinutes, parseISO } from 'date-fns'
 import type {
   Employee,
@@ -189,6 +199,8 @@ export function generateSchedule(input: GenerationInput): GenerationResult {
   const hoursPerEmployee: Record<string, number> = {}
   employees.forEach((e) => (hoursPerEmployee[e.id] = 0))
 
+  // ── Phase 1: Build working date list ────────────────────────────────────────
+  // Iterate from start to end date, skip non-working days and holidays.
   // Build list of working dates
   const workingDates: string[] = []
   let current = parseISO(schedule.start_date)
@@ -198,15 +210,21 @@ export function generateSchedule(input: GenerationInput): GenerationResult {
     const dateStr = format(current, 'yyyy-MM-dd')
     const dow = current.getDay() === 0 ? 7 : current.getDay() // 1=Mon, 7=Sun
     const isWorkingDay = schedule.working_days.includes(dow)
-    const holiday = schedule.include_holidays ? isHoliday(dateStr, holidays) : undefined
+    const onHoliday = isHoliday(dateStr, holidays)
 
-    if (isWorkingDay && !holiday) {
+    // include_holidays=true  → work on holidays (include them)
+    // include_holidays=false → holidays are days off (exclude them)
+    const skipDueToHoliday = onHoliday && !schedule.include_holidays
+
+    if (isWorkingDay && !skipDueToHoliday) {
       workingDates.push(dateStr)
     }
 
     current = addDays(current, 1)
   }
 
+  // ── Phase 2: Assign employees to shifts ─────────────────────────────────────
+  // Greedy: sort by least hours assigned, check constraints, assign first valid.
   // For each working date, fill each shift's slots
   for (const date of workingDates) {
     const dayOfWeek = new Date(date).getDay()
@@ -222,7 +240,50 @@ export function generateSchedule(input: GenerationInput): GenerationResult {
         (c) => c.type === 'pair_forbidden' && c.is_active
       )
 
-      // Sort employees by least hours assigned (balance distribution)
+      // ── Score-based sort for shift consistency ─────────────────────────────
+      // Each candidate gets a score (lower = preferred):
+      //   - Base: hours worked so far (balance)
+      //   - Bonus -1000: employee worked THIS SAME shift yesterday (continuity)
+      //   - Bonus -500: employee worked this shift in the last 3 days
+      //   - Penalty +500: employee worked a DIFFERENT shift yesterday (avoid switching)
+      // This keeps employees on consistent shift patterns while still respecting
+      // balance and all hard constraints.
+      const prevDateStr = format(addDays(parseISO(date), -1), 'yyyy-MM-dd')
+      const prev3Dates = [-1, -2, -3].map(d => format(addDays(parseISO(date), d), 'yyyy-MM-dd'))
+
+      const shiftScore = (emp: typeof employees[0]): number => {
+        const hours = hoursPerEmployee[emp.id] ?? 0
+        // What shift did this employee work yesterday?
+        const yesterdayAssignment = assignments.find(
+          a => a.employee_id === emp.id && a.date === prevDateStr
+        )
+        // What shifts did they work in last 3 days?
+        const recentShiftIds = prev3Dates
+          .map(d => assignments.find(a => a.employee_id === emp.id && a.date === d)?.shift_definition_id)
+          .filter(Boolean)
+
+        let score = hours
+
+        // shift_consistency: 0 = ignore (pure balance), 1 = mild, 2 = strong (default)
+        const consistency = config.shift_consistency ?? 2
+        if (consistency > 0 && yesterdayAssignment) {
+          if (yesterdayAssignment.shift_definition_id === shiftDef.id) {
+            // Same shift yesterday → preference scales with consistency setting
+            score -= consistency * 500
+          } else {
+            // Different shift yesterday → penalty scales with consistency setting
+            score += consistency * 250
+          }
+        }
+
+        // Worked this shift recently (2-3 days ago) → mild preference
+        if (consistency > 0 && recentShiftIds.includes(shiftDef.id) && yesterdayAssignment?.shift_definition_id !== shiftDef.id) {
+          score -= consistency * 150
+        }
+
+        return score
+      }
+
       const available = employees
         .filter((emp) => {
           if (!emp.is_active) return false
@@ -237,7 +298,7 @@ export function generateSchedule(input: GenerationInput): GenerationResult {
 
           return true
         })
-        .sort((a, b) => (hoursPerEmployee[a.id] ?? 0) - (hoursPerEmployee[b.id] ?? 0))
+        .sort((a, b) => shiftScore(a) - shiftScore(b))
 
       const assignedToShift: string[] = []
       let slotsToFill = slots
@@ -245,7 +306,9 @@ export function generateSchedule(input: GenerationInput): GenerationResult {
       for (const emp of available) {
         if (slotsToFill <= 0) break
 
-        // ── Hard constraint checks ──────────────────────────────────────────
+        // Hard constraints are checked in order of cheapest to most expensive.
+        // If any fails, skip this employee for this shift slot.
+  // ── Hard constraint checks ──────────────────────────────────────────
 
         // 1. Min rest between shifts
         const prev = getPreviousAssignment(emp.id, date, assignments, shiftDefinitions)

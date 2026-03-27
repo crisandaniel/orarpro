@@ -1,3 +1,9 @@
+// POST /api/billing/create-checkout — creates a Stripe Checkout session.
+// Verifies user is owner/admin before proceeding.
+// Gets or creates a Stripe customer for the organization.
+// Includes 14-day trial on first subscription.
+// Used by: UpgradeButton component on billing page.
+
 import { NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe/index'
 import { createServerSupabaseClient } from '@/lib/supabase/server'

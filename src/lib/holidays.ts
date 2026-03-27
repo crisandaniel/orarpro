@@ -1,3 +1,10 @@
+// Public holiday utilities using the free date.nager.at API.
+// getPublicHolidays(country, year): cached in memory for 24h.
+// getHolidaysInRange(country, start, end): handles multi-year ranges.
+// isHoliday(date, holidays): O(n) lookup for a specific date.
+// getSupportedCountries(): 100+ countries supported.
+// Used by: generate route, schedule view page.
+
 export interface PublicHoliday {
   date: string
   localName: string

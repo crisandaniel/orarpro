@@ -1,3 +1,8 @@
+// Yellow banner shown at the top of the dashboard when trial has 7 or fewer days left.
+// Links to /billing for upgrade.
+// Used by: (dashboard)/layout.tsx.
+
+
 import Link from 'next/link'
 import { AlertTriangle } from 'lucide-react'
 

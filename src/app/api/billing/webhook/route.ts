@@ -1,3 +1,12 @@
+// POST /api/billing/webhook — handles Stripe webhook events.
+// Stripe signature is verified before any processing.
+// Events handled:
+//   checkout.session.completed: activates plan, clears trial
+//   customer.subscription.updated: syncs plan and employee limit
+//   customer.subscription.deleted: downgrades to free
+//   invoice.payment_failed: logs warning
+// Used by: Stripe dashboard webhook configuration → must be added there.
+
 import { NextResponse } from 'next/server'
 import { stripe, getPlanByPriceId } from '@/lib/stripe/index'
 import { createAdminClient } from '@/lib/supabase/server'

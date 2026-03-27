@@ -1,3 +1,7 @@
+// Schedule generator for school/university timetables.
+// Optimizes to minimize free periods (windows) between classes for each teacher.
+// Used by: /api/schedules/[id]/generate (when schedule.type === 'school').
+
 import { addDays, format, getDay, parseISO } from 'date-fns'
 
 export interface TeacherSubject {

@@ -1,3 +1,7 @@
+// Legacy Stripe config file — superseded by src/lib/stripe/index.ts.
+// Kept for compatibility. Can be safely deleted if nothing imports from it.
+// Used by: nothing currently.
+
 import Stripe from 'stripe'
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {

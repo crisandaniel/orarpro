@@ -1,12 +1,19 @@
 'use client'
 
+// Step 2 of 3 — shift definitions and generation rules.
+// Collects: shift types (name, hours, color, slots/day), legal limits, min/max rules.
+// Calls POST /api/schedules/[id]/setup, then redirects to /constraints.
+// Used by: wizard flow after step 1.
+
+
+
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 import { Plus, Trash2, ChevronRight, Loader2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -43,7 +50,6 @@ export default function ScheduleSetupPage() {
   const router = useRouter()
   const params = useParams()
   const scheduleId = params.id as string
-  const supabase = createClient()
   const [scheduleType, setScheduleType] = useState<'shifts' | 'school'>('shifts')
 
   const {
@@ -72,76 +78,41 @@ export default function ScheduleSetupPage() {
   const { fields, append, remove } = useFieldArray({ control, name: 'shifts' })
 
   useEffect(() => {
-    supabase
-      .from('schedules')
-      .select('type')
-      .eq('id', scheduleId)
-      .single()
-      .then(({ data }) => {
-        if (data) setScheduleType(data.type as 'shifts' | 'school')
+    fetch(`/api/schedules/${scheduleId}/type`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.type) setScheduleType(data.type as 'shifts' | 'school')
       })
+      .catch(() => {})
   }, [scheduleId])
 
   async function onSubmit(data: SetupForm) {
-    // Get organization id
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const locale = window.location.pathname.split('/')[1] || 'ro'
 
-    const { data: membership } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (!membership) return
-
-    // Insert shift definitions
-    const { data: insertedShifts, error: shiftError } = await supabase
-      .from('shift_definitions')
-      .insert(
-        data.shifts.map((s) => ({
-          organization_id: membership.organization_id,
-          name: s.name,
-          shift_type: s.shift_type,
-          start_time: s.start_time,
-          end_time: s.end_time,
-          crosses_midnight: s.crosses_midnight,
-          color: s.color,
-        }))
-      )
-      .select()
-
-    if (shiftError || !insertedShifts) {
-      toast.error('Failed to save shifts')
-      return
-    }
-
-    // Link shifts to schedule with slots
-    await supabase.from('schedule_shifts').insert(
-      insertedShifts.map((s, i) => ({
-        schedule_id: scheduleId,
-        shift_definition_id: s.id,
-        slots_per_day: data.shifts[i].slots_per_day,
-      }))
-    )
-
-    // Update schedule generation config
-    await supabase
-      .from('schedules')
-      .update({
-        generation_config: {
+    const res = await fetch(`/api/schedules/${scheduleId}/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shifts: data.shifts,
+        generationConfig: {
           min_employees_per_shift: data.min_employees_per_shift,
           max_consecutive_days: data.max_consecutive_days,
-          min_rest_hours_between_shifts: data.min_rest_hours,
+          min_rest_hours: data.min_rest_hours,
           max_weekly_hours: data.max_weekly_hours,
           max_night_shifts_per_week: data.max_night_shifts_per_week,
           enforce_legal_limits: data.enforce_legal_limits,
-          balance_shift_distribution: data.balance_distribution,
+          balance_distribution: data.balance_distribution,
         },
-      })
-      .eq('id', scheduleId)
+      }),
+    })
 
-    router.push(`/schedules/${scheduleId}/constraints`)
+    const result = await res.json()
+    if (!res.ok) {
+      toast.error(result.error ?? 'Failed to save shifts')
+      return
+    }
+
+    window.location.href = `/${locale}/schedules/${scheduleId}/constraints`
   }
 
   const enforceLegal = watch('enforce_legal_limits')
@@ -149,8 +120,8 @@ export default function ScheduleSetupPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold">Shift configuration</h1>
-        <p className="text-gray-500 text-sm mt-1">Step 2 of 3 — Define your shifts and rules</p>
+        <h1 className="text-2xl font-semibold">Configurare ture</h1>
+        <p className="text-gray-500 text-sm mt-1">Pasul 2 din 3 — Definește turele și regulile</p>
       </div>
 
       <div className="flex gap-2 mb-8">
@@ -165,7 +136,7 @@ export default function ScheduleSetupPage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <label className="text-sm font-medium">
-              {scheduleType === 'school' ? 'Time slots' : 'Shift types'}
+              {scheduleType === 'school' ? 'Intervale orare' : 'Tipuri de ture'}
             </label>
             <button
               type="button"
@@ -205,7 +176,7 @@ export default function ScheduleSetupPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Name</label>
+                    <label className="block text-xs text-gray-500 mb-1">Nume</label>
                     <input
                       {...register(`shifts.${i}.name`)}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -213,7 +184,7 @@ export default function ScheduleSetupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Employees / day</label>
+                    <label className="block text-xs text-gray-500 mb-1">Angajați / zi</label>
                     <input
                       {...register(`shifts.${i}.slots_per_day`, { valueAsNumber: true })}
                       type="number"
@@ -225,7 +196,7 @@ export default function ScheduleSetupPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Start time</label>
+                    <label className="block text-xs text-gray-500 mb-1">Ora început</label>
                     <input
                       {...register(`shifts.${i}.start_time`)}
                       type="time"
@@ -233,7 +204,7 @@ export default function ScheduleSetupPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">End time</label>
+                    <label className="block text-xs text-gray-500 mb-1">Ora sfârșit</label>
                     <input
                       {...register(`shifts.${i}.end_time`)}
                       type="time"
@@ -253,25 +224,25 @@ export default function ScheduleSetupPage() {
 
         {/* Generation rules */}
         <div>
-          <h3 className="text-sm font-medium mb-3">Generation rules</h3>
+          <h3 className="text-sm font-medium mb-3">Reguli de generare</h3>
 
           {/* Legal limits toggle */}
           <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 mb-4">
             <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">EU legal limits</p>
-              <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">Min 11h rest between shifts, max 48h/week, max 6 consecutive days</p>
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Limite legale UE</p>
+              <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">Min 11h repaus între ture, max 48h/săptămână, max 6 zile consecutive</p>
             </div>
             <input {...register('enforce_legal_limits')} type="checkbox" className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600" />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             {[
-              { name: 'min_employees_per_shift' as const, label: 'Min employees / shift', min: 1, max: 50, disabled: false },
-              { name: 'max_consecutive_days' as const, label: 'Max consecutive days', min: 1, max: 7, disabled: enforceLegal },
-              { name: 'min_rest_hours' as const, label: 'Min rest between shifts (h)', min: 0, max: 24, disabled: enforceLegal },
-              { name: 'max_weekly_hours' as const, label: 'Max hours / week', min: 1, max: 80, disabled: enforceLegal },
-              { name: 'max_night_shifts_per_week' as const, label: 'Max night shifts / week', min: 0, max: 7, disabled: false },
+              { name: 'min_employees_per_shift' as const, label: 'Min angajați / tură', min: 1, max: 50, disabled: false },
+              { name: 'max_consecutive_days' as const, label: 'Max zile consecutive', min: 1, max: 7, disabled: enforceLegal },
+              { name: 'min_rest_hours' as const, label: 'Min repaus între ture (ore)', min: 0, max: 24, disabled: enforceLegal },
+              { name: 'max_weekly_hours' as const, label: 'Max ore / săptămână', min: 1, max: 80, disabled: enforceLegal },
+              { name: 'max_night_shifts_per_week' as const, label: 'Max ture de noapte / săptămână', min: 0, max: 7, disabled: false },
             ].map(({ name, label, min, max, disabled }) => (
               <div key={name}>
                 <label className="block text-xs text-gray-500 mb-1">{label}</label>

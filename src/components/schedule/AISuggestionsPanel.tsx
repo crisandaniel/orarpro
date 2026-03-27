@@ -1,5 +1,12 @@
 'use client'
 
+// Sidebar panel showing Claude AI analysis results after schedule generation.
+// Displays: warnings (burnout risk, understaffing), info, improvement suggestions.
+// Populated only when schedule.ai_suggestions field is non-null.
+// Used by: schedules/[id]/page.tsx.
+
+
+
 import { AlertTriangle, Info, TrendingUp, Bot } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

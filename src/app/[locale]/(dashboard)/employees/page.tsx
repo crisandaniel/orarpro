@@ -1,3 +1,7 @@
+// Employees page — server component, loads employees + leaves + unavailability.
+// Passes data to EmployeeList client component.
+// Used by: nav link 'Angajați'.
+
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { EmployeeList } from '@/components/employees/EmployeeList'

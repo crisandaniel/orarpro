@@ -1,12 +1,23 @@
 'use client'
 
+// Full employee management UI — add, edit, deactivate, view leaves.
+// Add/edit/toggle calls /api/employees (admin API bypasses RLS).
+// Leave management (inline sub-form) uses Supabase browser client directly.
+// Shows upgrade prompt when plan employee limit is reached.
+// Used by: employees/page.tsx.
+
+
+
+import { createClient } from '@/lib/supabase/client'
+
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, Users, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Employee, EmployeeLeave, EmployeeUnavailability } from '@/types'
@@ -46,7 +57,8 @@ export function EmployeeList({
   currentPlan,
 }: EmployeeListProps) {
   const router = useRouter()
-  const supabase = createClient()
+  const tEmp = useTranslations('employees')
+  const tCommon = useTranslations('common')
   const [employees, setEmployees] = useState(initialEmployees)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -88,39 +100,25 @@ export function EmployeeList({
 
   async function onSubmit(data: EmployeeForm) {
     if (editingId) {
-      const { data: updated, error } = await supabase
-        .from('employees')
-        .update({
-          name: data.name,
-          email: data.email || null,
-          phone: data.phone || null,
-          experience_level: data.experience_level,
-          color: data.color,
-        })
-        .eq('id', editingId)
-        .select()
-        .single()
-
-      if (error) { toast.error('Failed to update employee'); return }
-      setEmployees((prev) => prev.map((e) => (e.id === editingId ? (updated as any) : e)))
-      toast.success('Employee updated')
+      const res = await fetch('/api/employees', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId, ...data }),
+      })
+      const result = await res.json()
+      if (!res.ok) { toast.error(result.error ?? 'Failed to update employee'); return }
+      setEmployees((prev) => prev.map((e) => (e.id === editingId ? result.employee : e)))
+      toast.success(tCommon("success"))
     } else {
-      const { data: created, error } = await supabase
-        .from('employees')
-        .insert({
-          organization_id: organizationId,
-          name: data.name,
-          email: data.email || null,
-          phone: data.phone || null,
-          experience_level: data.experience_level,
-          color: data.color,
-        })
-        .select()
-        .single()
-
-      if (error) { toast.error('Failed to add employee'); return }
-      setEmployees((prev) => [...prev, created as any])
-      toast.success('Employee added')
+      const res = await fetch('/api/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const result = await res.json()
+      if (!res.ok) { toast.error(result.error ?? 'Failed to add employee'); return }
+      setEmployees((prev) => [...prev, result.employee])
+      toast.success(tCommon("success"))
     }
 
     setShowForm(false)
@@ -129,12 +127,13 @@ export function EmployeeList({
   }
 
   async function toggleActive(emp: Employee) {
-    const { error } = await supabase
-      .from('employees')
-      .update({ is_active: !emp.is_active })
-      .eq('id', emp.id)
-
-    if (error) { toast.error('Failed to update'); return }
+    const res = await fetch('/api/employees', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: emp.id, is_active: !emp.is_active,
+        name: emp.name, experience_level: emp.experience_level, color: emp.color }),
+    })
+    if (!res.ok) { toast.error('Failed to update'); return }
     setEmployees((prev) =>
       prev.map((e) => (e.id === emp.id ? { ...e, is_active: !e.is_active } : e))
     )
@@ -147,7 +146,7 @@ export function EmployeeList({
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Employees</h1>
+          <h1 className="text-2xl font-semibold">{tEmp("title")}</h1>
           <p className="text-gray-500 text-sm mt-1">
             {activeCount} / {maxEmployees} active
           </p>
@@ -174,12 +173,12 @@ export function EmployeeList({
 
       {/* Add/Edit form */}
       {showForm && (
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-indigo-200 dark:border-indigo-800 p-5 mb-4">
-          <h3 className="font-medium mb-4">{editingId ? 'Edit employee' : 'New employee'}</h3>
+        <div className="bg-white rounded-xl p-5 mb-4" style={{border: "0.5px solid #bfdbfe"}}>
+          <h3 className="font-medium mb-4">{editingId ? 'Editează angajat' : 'Angajat nou'}</h3>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             {/* Color picker */}
             <div>
-              <label className="block text-xs text-gray-500 mb-2">Color</label>
+              <label className="block text-xs text-gray-500 mb-2">{tEmp("color")}</label>
               <div className="flex flex-wrap gap-2">
                 {COLORS.map((color) => (
                   <button
@@ -201,17 +200,17 @@ export function EmployeeList({
                 <label className="block text-xs text-gray-500 mb-1">Name *</label>
                 <input
                   {...register('name')}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{border:"0.5px solid #d1d5db",color:"#111827",background:"#fff"}}
                   placeholder="Ion Popescu"
                 />
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Experience level</label>
+                <label className="block text-xs text-gray-500 mb-1">{tEmp("level")}</label>
                 <select
                   {...register('experience_level')}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{border:"0.5px solid #d1d5db",color:"#111827",background:"#fff"}}
                 >
                   <option value="junior">Junior</option>
                   <option value="mid">Mid-level</option>
@@ -220,21 +219,21 @@ export function EmployeeList({
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Email (optional)</label>
+                <label className="block text-xs text-gray-500 mb-1">{tEmp("email")}</label>
                 <input
                   {...register('email')}
                   type="email"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{border:"0.5px solid #d1d5db",color:"#111827",background:"#fff"}}
                   placeholder="ion@example.com"
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Phone (optional)</label>
+                <label className="block text-xs text-gray-500 mb-1">{tEmp("phone")}</label>
                 <input
                   {...register('phone')}
                   type="tel"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" style={{border:"0.5px solid #d1d5db",color:"#111827",background:"#fff"}}
                   placeholder="+40 721 000 000"
                 />
               </div>
@@ -244,14 +243,14 @@ export function EmployeeList({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50" style={{background:"#2563eb"}}
               >
-                {editingId ? 'Save changes' : 'Add employee'}
+                {editingId ? 'Salvează modificările' : 'Adaugă angajat'}
               </button>
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setEditingId(null) }}
-                className="px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors" style={{border:"0.5px solid #d1d5db",color:"#374151"}}
               >
                 Cancel
               </button>
@@ -262,10 +261,10 @@ export function EmployeeList({
 
       {/* Employee list */}
       {employees.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800">
+        <div className="flex flex-col items-center justify-center py-16 text-center bg-white rounded-xl" style={{border: "0.5px solid #e5e7eb"}}>
           <Users className="w-10 h-10 text-gray-300 mb-3" />
-          <p className="text-gray-500 mb-2">No employees yet</p>
-          <p className="text-gray-400 text-sm">Add your team members to start building schedules</p>
+          <p className="text-gray-500 mb-2">{tEmp("noEmployees")}</p>
+          <p className="text-gray-400 text-sm">{tEmp("noEmployeesHint")}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -278,7 +277,7 @@ export function EmployeeList({
               <div
                 key={emp.id}
                 className={cn(
-                  'bg-white dark:bg-gray-900 rounded-xl border transition-colors',
+                  'bg-white rounded-xl border transition-colors' + " border-gray-200",
                   emp.is_active
                     ? 'border-gray-200 dark:border-gray-800'
                     : 'border-gray-100 dark:border-gray-800/50 opacity-60'
@@ -301,12 +300,12 @@ export function EmployeeList({
                   {/* Badges */}
                   <div className="flex items-center gap-1.5 text-xs">
                     {empLeaves.length > 0 && (
-                      <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-400 rounded-full">
+                      <span className="px-2 py-0.5 rounded-full" style={{background:"#eff6ff",color:"#1d4ed8"}}>
                         {empLeaves.length} leave{empLeaves.length > 1 ? 's' : ''}
                       </span>
                     )}
                     {!emp.is_active && (
-                      <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-full">
+                      <span className="px-2 py-0.5 rounded-full" style={{background:"#f3f4f6",color:"#6b7280"}}>
                         Inactive
                       </span>
                     )}
@@ -374,10 +373,14 @@ function EmployeeDetails({
 }) {
   const supabase = createClient()
   const router = useRouter()
+  const tEmp = useTranslations('employees')
+  const tCommon = useTranslations('common')
   const [showLeaveForm, setShowLeaveForm] = useState(false)
   const [currentLeaves, setCurrentLeaves] = useState(leaves)
+  const [leaveStart, setLeaveStart] = useState('')
+  const [leaveEnd, setLeaveEnd] = useState('')
 
-  const { register, handleSubmit, reset, formState: { isSubmitting } } = useForm<z.infer<typeof leaveSchema>>({
+  const { register, handleSubmit, reset, setValue, formState: { isSubmitting } } = useForm<z.infer<typeof leaveSchema>>({
     resolver: zodResolver(leaveSchema),
   })
 
@@ -397,7 +400,9 @@ function EmployeeDetails({
     setCurrentLeaves((prev) => [...prev, created as any])
     setShowLeaveForm(false)
     reset()
-    toast.success('Leave added')
+    setLeaveStart('')
+    setLeaveEnd('')
+    toast.success(tEmp('leaves'))
   }
 
   async function removeLeave(id: string) {
@@ -410,7 +415,7 @@ function EmployeeDetails({
       {/* Leaves */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Leaves / Vacation</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{tEmp("leavesTitle")}</p>
           <button
             onClick={() => setShowLeaveForm(!showLeaveForm)}
             className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
@@ -421,17 +426,30 @@ function EmployeeDetails({
         </div>
 
         {showLeaveForm && (
-          <form onSubmit={handleSubmit(addLeave)} className="flex flex-wrap gap-2 mb-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-            <input {...register('start_date')} type="date" className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-transparent text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-            <input {...register('end_date')} type="date" className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-transparent text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500" />
-            <input {...register('reason')} placeholder="Reason (optional)" className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-transparent text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 flex-1 min-w-32" />
-            <button type="submit" disabled={isSubmitting} className="px-3 py-1.5 bg-indigo-600 text-white rounded text-xs font-medium">Save</button>
-            <button type="button" onClick={() => setShowLeaveForm(false)} className="px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded text-xs">Cancel</button>
+          <form onSubmit={handleSubmit(addLeave)} className="flex flex-col gap-2 mb-2 p-3 rounded-lg" style={{background:"#f9fafb"}}>
+            <div className="grid grid-cols-2 gap-2">
+              <DatePicker
+                label={tEmp('leaveStart')}
+                value={leaveStart}
+                onChange={(d) => { setLeaveStart(d); setValue('start_date', d) }}
+                placeholder="Alege data"
+              />
+              <DatePicker
+                label={tEmp('leaveEnd')}
+                value={leaveEnd}
+                onChange={(d) => { setLeaveEnd(d); setValue('end_date', d) }}
+                placeholder="Alege data"
+                minDate={leaveStart}
+              />
+            </div>
+            <input {...register('reason')} placeholder="Motiv (opțional)" className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-700 bg-transparent text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 flex-1 min-w-32" />
+            <button type="submit" disabled={isSubmitting} className="px-3 py-1.5 text-white rounded text-xs font-medium" style={{background:"#2563eb"}}>Salvează</button>
+            <button type="button" onClick={() => setShowLeaveForm(false)} className="px-3 py-1.5 rounded text-xs" style={{border:"0.5px solid #d1d5db",color:"#374151"}}>{tCommon("cancel")}</button>
           </form>
         )}
 
         {currentLeaves.length === 0 ? (
-          <p className="text-xs text-gray-400">No leaves scheduled</p>
+          <p className="text-xs text-gray-400">{tEmp("noLeaves")}</p>
         ) : (
           <div className="space-y-1">
             {currentLeaves.map((leave) => (
@@ -452,10 +470,10 @@ function EmployeeDetails({
       {/* Unavailability */}
       {unavailability.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Recurring unavailability</p>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">{tEmp("unavailability")}</p>
           <div className="flex flex-wrap gap-1.5">
             {unavailability.map((u) => (
-              <span key={u.id} className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full">
+              <span key={u.id} className="text-xs px-2 py-0.5 rounded-full" style={{background:"#f3f4f6",color:"#6b7280"}}>
                 {u.day_of_week !== null ? DAY_NAMES[u.day_of_week] : u.specific_date}
                 {u.note && ` · ${u.note}`}
               </span>

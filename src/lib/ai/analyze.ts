@@ -1,3 +1,9 @@
+// Claude AI schedule analysis — sends compact summary to Anthropic API.
+// Builds a prompt with: employee hours distribution, night shift counts, violations.
+// Returns JSON array of suggestions (warning/info/improvement) in user's locale.
+// Cost: ~$0.003 per analysis. Responds in RO or EN based on locale header.
+// Used by: /api/schedules/[id]/generate after assignment generation.
+
 import type { ShiftAssignment, Employee, Constraint, Schedule, ShiftDefinition } from '@/types'
 
 interface AnalysisInput {

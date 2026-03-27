@@ -1,8 +1,22 @@
+// TypeScript interfaces for the entire application.
+// Mirrors the Supabase database schema — when migrations change, update these too.
+// Key types:
+//   Profile — auth user public data + GDPR consent timestamps
+//   Organization — billing entity, holds plan + employee limit
+//   Employee — team member with color, experience level, active flag
+//   Schedule — root entity for a generated timetable
+//   ShiftDefinition — reusable shift template (name, hours, color)
+//   ShiftAssignment — one cell in the schedule grid (employee x date x shift)
+//   Constraint — hard rule respected by the generation algorithm
+// Used by: throughout the app for type safety.
+
 // ─── Auth & Users ────────────────────────────────────────────────────────────
 
 export type UserRole = 'owner' | 'admin' | 'editor' | 'viewer'
 
-export interface Profile {
+// ── Mirrors: public.profiles table ──────────────────────────────────────────
+// Created automatically by handle_new_user() trigger on auth.users insert.
+  export interface Profile {
   id: string
   email: string
   full_name: string | null
@@ -20,7 +34,9 @@ export interface Profile {
 export type PlanType = 'free' | 'starter' | 'pro' | 'business'
 export type ScheduleType = 'shifts' | 'school'
 
-export interface Organization {
+// ── Mirrors: public.organizations table ─────────────────────────────────────
+// Central billing and config entity. One org can have multiple members.
+  export interface Organization {
   id: string
   name: string
   country_code: string        // ISO 3166-1 alpha-2, e.g. 'RO', 'DE'
@@ -37,7 +53,9 @@ export interface Organization {
   updated_at: string
 }
 
-export interface OrganizationMember {
+// ── Mirrors: public.organizations table ─────────────────────────────────────
+// Central billing and config entity. One org can have multiple members.
+  export interface OrganizationMember {
   id: string
   organization_id: string
   user_id: string
@@ -51,7 +69,9 @@ export interface OrganizationMember {
 
 export type ExperienceLevel = 'junior' | 'mid' | 'senior'
 
-export interface Employee {
+// ── Mirrors: public.employees table ─────────────────────────────────────────
+// Belongs to one organization. color is used in ScheduleGrid for visual distinction.
+  export interface Employee {
   id: string
   organization_id: string
   name: string
@@ -64,7 +84,9 @@ export interface Employee {
   updated_at: string
 }
 
-export interface EmployeeLeave {
+// ── Mirrors: public.employees table ─────────────────────────────────────────
+// Belongs to one organization. color is used in ScheduleGrid for visual distinction.
+  export interface EmployeeLeave {
   id: string
   employee_id: string
   start_date: string    // ISO date
@@ -73,7 +95,9 @@ export interface EmployeeLeave {
   created_at: string
 }
 
-export interface EmployeeUnavailability {
+// ── Mirrors: public.employees table ─────────────────────────────────────────
+// Belongs to one organization. color is used in ScheduleGrid for visual distinction.
+  export interface EmployeeUnavailability {
   id: string
   employee_id: string
   day_of_week: number | null    // 0=Sun, 1=Mon ... 6=Sat
@@ -102,7 +126,9 @@ export interface ShiftDefinition {
 
 export type GenerationStatus = 'draft' | 'generating' | 'generated' | 'published'
 
-export interface Schedule {
+// ── Mirrors: public.schedules table ─────────────────────────────────────────
+// The root entity for a generated schedule. generation_config is stored as JSONB.
+  export interface Schedule {
   id: string
   organization_id: string
   name: string
@@ -142,7 +168,9 @@ export interface AISuggestion {
 
 // ─── Schedule Shifts ─────────────────────────────────────────────────────────
 
-export interface ScheduleShift {
+// ── Mirrors: public.schedules table ─────────────────────────────────────────
+// The root entity for a generated schedule. generation_config is stored as JSONB.
+  export interface ScheduleShift {
   id: string
   schedule_id: string
   shift_definition_id: string
@@ -151,7 +179,9 @@ export interface ScheduleShift {
 
 // ─── Shift Assignments ───────────────────────────────────────────────────────
 
-export interface ShiftAssignment {
+// ── Mirrors: public.shift_assignments table ──────────────────────────────────
+// One row per employee × date × shift. is_manual_override = true when set by drag-drop.
+  export interface ShiftAssignment {
   id: string
   schedule_id: string
   employee_id: string
@@ -176,7 +206,10 @@ export type ConstraintType =
   | 'min_staff'
   | 'fixed_shift'
 
-export interface Constraint {
+// ── Mirrors: public.constraints table ───────────────────────────────────────
+// Hard constraints respected by the generation algorithm.
+// employee_id = null means the constraint applies to ALL employees.
+  export interface Constraint {
   id: string
   schedule_id: string
   type: ConstraintType
