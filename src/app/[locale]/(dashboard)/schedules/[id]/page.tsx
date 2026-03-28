@@ -6,11 +6,10 @@ import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/se
 import { notFound } from 'next/navigation'
 import { getHolidaysInRange } from '@/lib/holidays'
 import { format } from 'date-fns'
-import { ScheduleGrid } from '@/components/schedule/ScheduleGrid'
+import { ScheduleView } from '@/components/schedule/ScheduleView'
 import { ScheduleActions } from '@/components/schedule/ScheduleActions'
 import { AISuggestionsPanel } from '@/components/schedule/AISuggestionsPanel'
 import { ConstraintsPanel } from '@/components/schedule/ConstraintsPanel'
-import { EmployeeStats } from '@/components/schedule/EmployeeStats'
 
 interface Props {
   params: Promise<{ id: string; locale: string }>
@@ -105,9 +104,9 @@ export default async function ScheduleViewPage({ params }: Props) {
 
       <div className="flex gap-6">
         <div className="flex-1 min-w-0">
-          <ScheduleGrid
+          <ScheduleView
             schedule={schedule as any}
-            assignments={(assignmentsResult.data ?? []) as any}
+            initialAssignments={(assignmentsResult.data ?? []) as any}
             employees={(employeesResult.data ?? []) as any}
             shiftDefinitions={shiftDefs as any}
             holidays={holidays}
@@ -120,16 +119,6 @@ export default async function ScheduleViewPage({ params }: Props) {
             <AISuggestionsPanel suggestions={aiSuggestions} />
           </div>
         )}
-      </div>
-
-      {/* Employee statistics panel */}
-      <div className="print-hide">
-        <EmployeeStats
-          employees={(employeesResult.data ?? []) as any}
-          assignments={(assignmentsResult.data ?? []) as any}
-          shiftDefinitions={shiftDefs as any}
-          schedule={schedule as any}
-        />
       </div>
 
       {/* Editable constraints panel */}

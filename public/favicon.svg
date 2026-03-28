@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#2563eb"/>
+
+  <!-- O ring -->
+  <circle cx="256" cy="256" r="168" fill="none" stroke="white" stroke-width="40" opacity="0.95"/>
+
+  <!-- Calendar grid cells — 3x3 -->
+  <!-- Row 1 -->
+  <rect x="200" y="200" width="28" height="22" rx="3" fill="rgba(255,255,255,0.12)"/>
+  <rect x="244" y="200" width="28" height="22" rx="3" fill="rgba(255,255,255,0.25)"/>
+  <rect x="288" y="200" width="28" height="22" rx="3" fill="rgba(255,255,255,0.12)"/>
+  <!-- Row 2 -->
+  <rect x="200" y="238" width="28" height="22" rx="3" fill="rgba(255,255,255,0.25)"/>
+  <rect x="244" y="238" width="28" height="22" rx="3" fill="rgba(255,255,255,0.9)"/>
+  <rect x="288" y="238" width="28" height="22" rx="3" fill="rgba(255,255,255,0.25)"/>
+  <!-- Row 3 -->
+  <rect x="200" y="276" width="28" height="22" rx="3" fill="rgba(255,255,255,0.12)"/>
+  <rect x="244" y="276" width="28" height="22" rx="3" fill="rgba(255,255,255,0.25)"/>
+  <rect x="288" y="276" width="28" height="22" rx="3" fill="rgba(255,255,255,0.12)"/>
+
+  <!-- Calendar header bar -->
+  <rect x="218" y="172" width="76" height="8" rx="4" fill="rgba(255,255,255,0.3)"/>
+  <rect x="234" y="172" width="16" height="8" rx="4" fill="rgba(255,255,255,0.7)"/>
+</svg>

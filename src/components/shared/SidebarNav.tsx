@@ -10,7 +10,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LayoutDashboard, Calendar, Users, Settings, CreditCard, LogOut, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, Calendar, Users, Settings, CreditCard, LogOut, ChevronDown, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile, Organization } from '@/types'
 
@@ -36,7 +36,7 @@ export function SidebarNav({ profile, organization }: SidebarNavProps) {
     { href: `/${locale}/schedules`,  label: t('schedules'), icon: Calendar },
     { href: `/${locale}/employees`,  label: t('employees'), icon: Users },
     { href: `/${locale}/settings`,   label: t('settings'),  icon: Settings },
-    { href: `/${locale}/billing`,    label: t('billing'),   icon: CreditCard },
+    { href: `/${locale}/feedback`,   label: t('contact'),   icon: MessageSquare },
   ]
 
   return (

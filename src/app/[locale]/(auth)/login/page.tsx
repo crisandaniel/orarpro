@@ -204,6 +204,13 @@ export default function LoginPage() {
             </div>
           )
         })}
+      {/* Legal links */}
+      <p style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', marginTop: '16px' }}>
+        Prin autentificare, ești de acord cu{' '}
+        <a href={`/${locale}/terms`} style={{ color: '#6b7280', textDecoration: 'underline' }}>Termenii și condițiile</a>
+        {' '}și{' '}
+        <a href={`/${locale}/privacy`} style={{ color: '#6b7280', textDecoration: 'underline' }}>Politica de confidențialitate</a>.
+      </p>
       </div>
     </div>
   )

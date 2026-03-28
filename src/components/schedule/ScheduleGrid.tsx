@@ -6,7 +6,8 @@
 // B&W print safe: border-left thickness varies per shift (3–7px) + text names always visible.
 // Used by: schedules/[id]/page.tsx.
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { format, parseISO, eachDayOfInterval } from 'date-fns'
 import type { Schedule, Employee, ShiftAssignment, ShiftDefinition } from '@/types'
 import type { PublicHoliday } from '@/lib/holidays'
@@ -21,6 +22,7 @@ interface ScheduleGridProps {
   shiftDefinitions: ShiftDefinition[]
   holidays: PublicHoliday[]
   scheduleId: string
+  onAssignmentsChange?: (assignments: any[]) => void
 }
 
 const WEEK_SIZE = 7
@@ -95,12 +97,16 @@ function NameBadge({ label, styleIdx }: { label: string; styleIdx: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ScheduleGrid({
-  schedule, assignments, employees, shiftDefinitions, holidays, scheduleId,
+  schedule, assignments, employees, shiftDefinitions, holidays, scheduleId, onAssignmentsChange,
 }: ScheduleGridProps) {
   const [weekOffset, setWeekOffset] = useState(0)
   const [viewMode, setViewMode] = useState<'shifts' | 'employees'>('shifts')
   // Editing state: which cell is open for manual edit
   const [editCell, setEditCell] = useState<{ shiftId: string; date: string } | null>(null)
+  // Dropdown portal position — tracks the clicked cell's screen position
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number } | null>(null)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   const [saving, setSaving] = useState(false)
   // Local assignments state so edits reflect immediately without page reload
   const [localAssignments, setLocalAssignments] = useState(assignments)
@@ -386,7 +392,11 @@ export function ScheduleGrid({
     })
     if (res.ok) {
       const { assignment } = await res.json()
-      setLocalAssignments(prev => [...prev, assignment])
+      setLocalAssignments(prev => {
+        const next = [...prev, assignment]
+        onAssignmentsChange?.(next)
+        return next
+      })
     }
     setSaving(false)
     setEditCell(null)
@@ -399,9 +409,13 @@ export function ScheduleGrid({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ employeeId, shiftDefinitionId: shiftId, date }),
     })
-    setLocalAssignments(prev => prev.filter(a =>
-      !(a.shift_definition_id === shiftId && a.date === date && a.employee_id === employeeId)
-    ))
+    setLocalAssignments(prev => {
+      const next = prev.filter(a =>
+        !(a.shift_definition_id === shiftId && a.date === date && a.employee_id === employeeId)
+      )
+      onAssignmentsChange?.(next)
+      return next
+    })
     setSaving(false)
   }
 
@@ -511,7 +525,20 @@ export function ScheduleGrid({
                       )
                       return (
                         <td key={date}
-                          onClick={() => isWorking && setEditCell(isEditing ? null : { shiftId: shift.id, date })}
+                          onClick={(e) => {
+                        if (!isWorking) return
+                        if (isEditing) {
+                          setEditCell(null)
+                          setDropdownPos(null)
+                        } else {
+                          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                          setDropdownPos({
+                            top: rect.bottom + 4,
+                            left: rect.left,
+                          })
+                          setEditCell({ shiftId: shift.id, date })
+                        }
+                      }}
                           style={{
                             padding: '5px', verticalAlign: 'top', minWidth: '90px',
                             borderBottom: isLast ? 'none' : '0.5px solid #f0f0f0',
@@ -567,41 +594,7 @@ export function ScheduleGrid({
                                   </div>
                                 )}
                               </div>
-                              {/* Employee picker dropdown */}
-                              {isEditing && (
-                                <div
-                                  onClick={(e) => e.stopPropagation()}
-                                  style={{
-                                    position: 'absolute', top: '100%', left: 0, zIndex: 50,
-                                    background: '#fff', border: '0.5px solid #e5e7eb',
-                                    borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                                    minWidth: '140px', padding: '4px 0',
-                                  }}>
-                                  {employees
-                                    .filter(emp => !assignedIds.has(emp.id))
-                                    .map(emp => (
-                                      <button key={emp.id}
-                                        onClick={() => addAssignment(shift.id, date, emp)}
-                                        disabled={saving}
-                                        style={{ display: 'block', width: '100%', textAlign: 'left',
-                                          padding: '6px 12px', border: 'none', background: 'none',
-                                          cursor: 'pointer', fontSize: '12px', color: '#111827' }}
-                                        onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
-                                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-                                        <span style={{ display: 'inline-block', width: '8px', height: '8px',
-                                          borderRadius: '50%', background: emp.color || '#6366f1',
-                                          marginRight: '6px' }} />
-                                        {emp.name}
-                                      </button>
-                                    ))
-                                  }
-                                  {employees.filter(emp => !assignedIds.has(emp.id)).length === 0 && (
-                                    <div style={{ padding: '6px 12px', fontSize: '11px', color: '#9ca3af' }}>
-                                      Toți angajații asignați
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                              {/* Dropdown rendered via portal — see bottom of component */}
                             </>
                           )}
                         </td>
@@ -641,6 +634,47 @@ export function ScheduleGrid({
           </div>
         </div>
       )}
+      {/* ── Employee picker portal ── */}
+      {mounted && editCell && dropdownPos && (() => {
+        const assignedIds = new Set(
+          localAssignments
+            .filter(a => a.shift_definition_id === editCell.shiftId && a.date === editCell.date)
+            .map(a => a.employee_id)
+        )
+        const available = employees.filter(emp => !assignedIds.has(emp.id))
+        return createPortal(
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+              onClick={() => { setEditCell(null); setDropdownPos(null) }} />
+            <div onClick={(e) => e.stopPropagation()} style={{
+              position: 'fixed', top: dropdownPos.top, left: dropdownPos.left,
+              zIndex: 9999, background: '#fff', border: '0.5px solid #e5e7eb',
+              borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              minWidth: '160px', padding: '4px 0',
+            }}>
+              {available.length === 0 ? (
+                <div style={{ padding: '8px 12px', fontSize: '11px', color: '#9ca3af' }}>
+                  Toți angajații asignați
+                </div>
+              ) : available.map(emp => (
+                <button key={emp.id}
+                  onClick={() => { addAssignment(editCell.shiftId, editCell.date, emp); setDropdownPos(null) }}
+                  disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px',
+                    width: '100%', padding: '7px 12px', border: 'none',
+                    background: 'none', cursor: 'pointer', fontSize: '12px', color: '#111827' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%',
+                    background: emp.color || '#6366f1', flexShrink: 0, display: 'inline-block' }} />
+                  {emp.name}
+                </button>
+              ))}
+            </div>
+          </>,
+          document.body
+        )
+      })()}
       </div>
     )
   }
@@ -765,6 +799,50 @@ export function ScheduleGrid({
           </div>
         </div>
       )}
+
+      {/* ── Employee picker portal — renders in document.body to avoid overflow clipping ── */}
+      {mounted && editCell && dropdownPos && (() => {
+        const assignedIds = new Set(
+          localAssignments
+            .filter(a => a.shift_definition_id === editCell.shiftId && a.date === editCell.date)
+            .map(a => a.employee_id)
+        )
+        const available = employees.filter(emp => !assignedIds.has(emp.id))
+        return createPortal(
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+              onClick={() => { setEditCell(null); setDropdownPos(null) }} />
+            <div onClick={(e) => e.stopPropagation()} style={{
+              position: 'fixed',
+              top: dropdownPos.top, left: dropdownPos.left,
+              zIndex: 9999, background: '#fff',
+              border: '0.5px solid #e5e7eb', borderRadius: '10px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              minWidth: '160px', padding: '4px 0',
+            }}>
+              {available.length === 0 ? (
+                <div style={{ padding: '8px 12px', fontSize: '11px', color: '#9ca3af' }}>
+                  Toți angajații asignați
+                </div>
+              ) : available.map(emp => (
+                <button key={emp.id}
+                  onClick={() => { addAssignment(editCell.shiftId, editCell.date, emp); setDropdownPos(null) }}
+                  disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px',
+                    width: '100%', padding: '7px 12px', border: 'none',
+                    background: 'none', cursor: 'pointer', fontSize: '12px', color: '#111827' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f3f4f6')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%',
+                    background: emp.color || '#6366f1', flexShrink: 0, display: 'inline-block' }} />
+                  {emp.name}
+                </button>
+              ))}
+            </div>
+          </>,
+          document.body
+        )
+      })()}
     </div>
   )
 }
