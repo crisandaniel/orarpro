@@ -1,9 +1,13 @@
 // Root HTML shell required by Next.js App Router.
 // Provides <html> and <body> tags. Providers are in [locale]/layout.tsx.
+// Google Analytics via @next/third-parties (no performance penalty).
 // Used by: Next.js — wraps every page in the app.
 
 import type { Metadata, Viewport } from 'next'
 import { Toaster } from 'sonner'
+import { GoogleAnalytics } from '@next/third-parties/google'
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? ''
 
 export const metadata: Metadata = {
   title: {
@@ -21,6 +25,10 @@ export const metadata: Metadata = {
     ],
     apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
   },
+  verification: {
+    // Google Search Console — completează după ce obții codul de verificare
+    google: 'G-244L3D68D7',
+  },
 }
 
 export const viewport: Viewport = {
@@ -35,6 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <Toaster richColors position="top-right" />
+        {GA_ID && <GoogleAnalytics gaId={GA_ID} />}
       </body>
     </html>
   )
