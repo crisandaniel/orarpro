@@ -25,9 +25,10 @@ export function SidebarNav({ profile, organization }: SidebarNavProps) {
   const supabase = createClient()
   const locale = pathname.split('/')[1] || 'ro'
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    window.location.href = `/${locale}/login`
+  function handleLogout() {
+    // Use server-side logout to properly clear SSR session cookies
+    // Client-side signOut() alone doesn't work reliably on Vercel
+    window.location.href = `/api/auth/logout?locale=${locale}`
   }
 
   const links = [
