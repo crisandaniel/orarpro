@@ -30,6 +30,7 @@
     "dashboard": "Panou principal",
     "schedules": "Orare",
     "employees": "Angajați",
+    "resources": "Resurse",
     "settings": "Setări",
     "billing": "Abonament",
     "contact": "Contact",
@@ -124,7 +125,10 @@
     "noSchedulesHint": "Creează primul orar pentru a asigna ture echipei tale.",
     "createFirst": "Creează primul orar",
     "mon": "Lun", "tue": "Mar", "wed": "Mie",
-    "thu": "Joi", "fri": "Vin", "sat": "Sâm", "sun": "Dum"
+    "thu": "Joi", "fri": "Vin", "sat": "Sâm", "sun": "Dum",
+    "status": "Status",
+    "period": "Perioada",
+    "noSchedulesDesc": "schedule.noSchedulesDesc"
   },
   "shifts": {
     "title": "Tipuri de ture",

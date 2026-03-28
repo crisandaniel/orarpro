@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
+import { getOrgContext } from '@/lib/dal/org'
 
 export async function POST(
   request: Request,
@@ -19,13 +20,8 @@ export async function POST(
   const body = await request.json()
   const { type, employee_id, target_employee_id, shift_definition_id, value, note } = body
 
-  const { data: membership } = await admin
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) return NextResponse.json({ error: 'No organization' }, { status: 400 })
+  const ctx = await getOrgContext(user.id)
+  if (!ctx) return NextResponse.json({ error: 'No organization' }, { status: 400 })
 
   const { data: constraint, error } = await admin
     .from('constraints')

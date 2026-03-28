@@ -12,25 +12,31 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
+import { Loader2, Factory, GraduationCap } from 'lucide-react'
 
 const orgSchema = z.object({
   name: z.string().min(2, 'Numele organizației este obligatoriu'),
   country_code: z.string().min(2),
+  org_type: z.enum(['business', 'education']),
 })
 
 type OrgForm = z.infer<typeof orgSchema>
 
 export default function SetupOrganizationPage() {
+  const router = useRouter()
+  const params = useParams()
+  const locale = params.locale as string ?? 'ro'
   const [done, setDone] = useState(false)
+  const [orgType, setOrgType] = useState<'business'|'education'>('business')
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<OrgForm>({
     resolver: zodResolver(orgSchema),
-    defaultValues: { country_code: 'RO' },
+    defaultValues: { country_code: 'RO', org_type: 'business' },
   })
 
   async function onSubmit(data: OrgForm) {
-    const locale = window.location.pathname.split('/')[1] || 'ro'
 
     let res: Response
     try {
@@ -61,7 +67,7 @@ export default function SetupOrganizationPage() {
     toast.success('Organizație creată!')
     setDone(true)
     setTimeout(() => {
-      window.location.href = `/${locale}/dashboard`
+      router.push(`/${locale}/dashboard`)
     }, 800)
   }
 
@@ -86,6 +92,39 @@ export default function SetupOrganizationPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Tipul organizației */}
+            <div>
+              <label className="block text-sm font-medium mb-3" style={{ color: '#374151' }}>
+                Tipul organizației
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {([
+                  { value: 'business' as const,  icon: Factory,       title: 'Business',  desc: 'HoReCa, fabrici, retail, clinici' },
+                  { value: 'education' as const, icon: GraduationCap, title: 'Educație',  desc: 'Școli, licee, grădinițe, universități' },
+                ] ).map(({ value, icon: Icon, title, desc }) => (
+                  <label key={value}
+                    className="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors"
+                    style={{
+                      borderColor: orgType === value ? '#2563eb' : '#e5e7eb',
+                      background: orgType === value ? '#eff6ff' : '#fff',
+                    }}>
+                    <input
+                      {...register('org_type')}
+                      type="radio" value={value} className="sr-only"
+                      onChange={() => setOrgType(value)}
+                    />
+                    <Icon className="w-5 h-5 mt-0.5 shrink-0"
+                      style={{ color: orgType === value ? '#2563eb' : '#9ca3af' }} />
+                    <div>
+                      <p className="font-medium text-sm"
+                        style={{ color: orgType === value ? '#1d4ed8' : '#111827' }}>{title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>{desc}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1.5" style={{ color: '#374151' }}>
                 Numele organizației

@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
+import { getOrgContext } from '@/lib/dal/org'
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
@@ -14,21 +15,16 @@ export async function POST(request: Request) {
   const admin = createAdminClient()
   const body = await request.json()
 
-  const { data: membership } = await admin
-    .from('organization_members')
-    .select('organization_id, organizations(max_employees)')
-    .eq('user_id', user.id)
-    .single()
+  const ctx = await getOrgContext(user.id)
+  if (!ctx) return NextResponse.json({ error: 'No organization' }, { status: 400 })
 
-  if (!membership) return NextResponse.json({ error: 'No organization' }, { status: 400 })
-
-  const org = membership.organizations as any
+  const org = ctx.org
 
   // Check employee limit
   const { count } = await admin
     .from('employees')
     .select('id', { count: 'exact' })
-    .eq('organization_id', membership.organization_id)
+    .eq('organization_id', ctx.org.id)
     .eq('is_active', true)
 
   if (count !== null && count >= (org?.max_employees ?? 10)) {
@@ -38,7 +34,7 @@ export async function POST(request: Request) {
   const { data: employee, error } = await admin
     .from('employees')
     .insert({
-      organization_id: membership.organization_id,
+      organization_id: ctx.org.id,
       name: body.name,
       email: body.email || null,
       phone: body.phone || null,
@@ -83,4 +79,40 @@ export async function PATCH(request: Request) {
   }
 
   return NextResponse.json({ success: true, employee })
+}
+
+// POST /api/employees/leaves — add a leave
+// DELETE /api/employees/leaves — remove a leave
+// Separate from employee CRUD to keep route clean.
+// Note: Next.js doesn't allow sub-routes here, so we check a 'action' param.
+
+export async function DELETE(request: Request) {
+  const supabase = await createServerSupabaseClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { leaveId } = await request.json()
+  if (!leaveId) return NextResponse.json({ error: 'leaveId required' }, { status: 400 })
+
+  const admin = createAdminClient()
+
+  // Verify the leave belongs to user's org
+  const { data: leave } = await admin
+    .from('employee_leaves')
+    .select('employee_id, employees(organization_id)')
+    .eq('id', leaveId)
+    .single()
+
+  const orgId = (leave as any)?.employees?.organization_id
+  const { data: membership } = await admin
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .eq('organization_id', orgId)
+    .single()
+
+  if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  await admin.from('employee_leaves').delete().eq('id', leaveId)
+  return NextResponse.json({ success: true })
 }

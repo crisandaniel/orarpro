@@ -9,6 +9,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
+import { getOrgContext } from '@/lib/dal/org'
 import { generateSchedule } from '@/lib/algorithms/generate'
 import { analyzeScheduleWithAI } from '@/lib/ai/analyze'
 import { getHolidaysInRange } from '@/lib/holidays'
@@ -77,10 +78,9 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: membership } = await admin
-    .from('organization_members').select('organization_id').eq('user_id', user.id).single()
-  if (!membership) return NextResponse.json({ error: 'No organization' }, { status: 400 })
-  const orgId = membership.organization_id
+  const ctx = await getOrgContext(user.id)
+  if (!ctx) return NextResponse.json({ error: 'No organization' }, { status: 400 })
+  const orgId = ctx.org.id
 
   const empIds = (await admin.from('employees').select('id').eq('organization_id', orgId)).data?.map(e => e.id) ?? []
 

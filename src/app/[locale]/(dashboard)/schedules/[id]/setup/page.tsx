@@ -50,6 +50,7 @@ export default function ScheduleSetupPage() {
   const router = useRouter()
   const params = useParams()
   const scheduleId = params.id as string
+  const locale = params.locale as string ?? 'ro'
   const [scheduleType, setScheduleType] = useState<'shifts' | 'school'>('shifts')
 
   const {
@@ -87,7 +88,6 @@ export default function ScheduleSetupPage() {
   }, [scheduleId])
 
   async function onSubmit(data: SetupForm) {
-    const locale = window.location.pathname.split('/')[1] || 'ro'
 
     const res = await fetch(`/api/schedules/${scheduleId}/setup`, {
       method: 'POST',
@@ -112,7 +112,7 @@ export default function ScheduleSetupPage() {
       return
     }
 
-    window.location.href = `/${locale}/schedules/${scheduleId}/constraints`
+    router.push(`/${locale}/schedules/${scheduleId}/constraints`)
   }
 
   const enforceLegal = watch('enforce_legal_limits')

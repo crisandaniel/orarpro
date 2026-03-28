@@ -1,7 +1,7 @@
-// Billing page — current plan info + 4 plan cards with features and prices.
-// Free plan is permanent (no expiry). Paid plans have 14-day trials.
-// UpgradeButton triggers Stripe Checkout.
-// Used by: nav link 'Abonament'.
+// BACKUP — pagina completă de billing cu Stripe.
+// Redenumește în page.tsx când ești gata să activezi plățile.
+// Necesită: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET în .env
+//           UpgradeButton component, PLANS config în lib/stripe/index.ts
 
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'

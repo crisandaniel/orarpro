@@ -1,53 +1,40 @@
-// Employees page — server component, loads employees + leaves + unavailability.
-// Passes data to EmployeeList client component.
-// Used by: nav link 'Angajați'.
+// Employees page — server component using DAL.
 
-import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getOrgContext } from '@/lib/dal/org'
+import { getEmployeesWithLeaves } from '@/lib/dal/employees'
 import { EmployeeList } from '@/components/employees/EmployeeList'
 
-export default async function EmployeesPage() {
+interface Props { params: Promise<{ locale: string }> }
+
+export default async function EmployeesPage({ params }: Props) {
+  const { locale } = await params
   const supabase = await createServerSupabaseClient()
-
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  if (!user) redirect(`/${locale}/login`)
 
-  const { data: membership } = await supabase
-    .from('organization_members')
-    .select('organization_id, organizations(max_employees, plan)')
-    .eq('user_id', user.id)
-    .single()
+  const ctx = await getOrgContext(user.id)
+  if (!ctx) redirect(`/${locale}/setup`)
 
-  const orgId = membership?.organization_id
-  const org = membership?.organizations as any
+  const employees = await getEmployeesWithLeaves(ctx.org.id)
 
-  const [employeesResult, leavesResult, unavailResult] = await Promise.all([
-    supabase
-      .from('employees')
-      .select('*')
-      .eq('organization_id', orgId ?? '')
-      .order('name'),
-    supabase
-      .from('employee_leaves')
-      .select('*'),
-    supabase
-      .from('employee_unavailability')
-      .select('*'),
-  ])
-
-  const employees = employeesResult.data ?? []
-  const leaves = leavesResult.data ?? []
-  const unavailability = unavailResult.data ?? []
+  const leaves = employees.flatMap((e: any) => e.employee_leaves ?? [])
+  const unavailability = employees.flatMap((e: any) => e.employee_unavailability ?? [])
+  const cleanEmployees = employees.map((e: any) => {
+    const { employee_leaves, employee_unavailability, ...emp } = e
+    return emp
+  })
 
   return (
     <div className="max-w-4xl mx-auto">
       <EmployeeList
-        employees={employees as any}
-        leaves={leaves as any}
-        unavailability={unavailability as any}
-        organizationId={orgId ?? ''}
-        maxEmployees={org?.max_employees ?? 10}
-        currentPlan={org?.plan ?? 'free'}
+        employees={cleanEmployees}
+        leaves={leaves}
+        unavailability={unavailability}
+        organizationId={ctx.org.id}
+        maxEmployees={ctx.org.max_employees}
+        currentPlan={ctx.org.plan}
       />
     </div>
   )

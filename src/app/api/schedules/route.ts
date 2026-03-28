@@ -1,14 +1,18 @@
 // POST /api/schedules — creates a new schedule record (status: draft).
-// Uses createAdminClient() to bypass RLS.
+// Uses getOrgContext() to get the active organization — handles multi-org users.
 // Used by: schedules/new/page.tsx (step 1 of wizard).
 
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
+import { getOrgContext } from '@/lib/dal/org'
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const ctx = await getOrgContext(user.id)
+  if (!ctx) return NextResponse.json({ error: 'No organization found' }, { status: 400 })
 
   const body = await request.json()
   const { name, type, startDate, endDate, workingDays, includeHolidays, countryCode } = body
@@ -19,21 +23,10 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient()
 
-  // Get organization
-  const { data: membership } = await admin
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) {
-    return NextResponse.json({ error: 'No organization found' }, { status: 400 })
-  }
-
   const { data: schedule, error } = await admin
     .from('schedules')
     .insert({
-      organization_id: membership.organization_id,
+      organization_id: ctx.org.id,
       name,
       type: type || 'shifts',
       start_date: startDate,

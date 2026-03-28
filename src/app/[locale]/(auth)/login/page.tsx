@@ -10,7 +10,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useRouter, useSearchParams, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -63,10 +63,10 @@ const i18n = {
 
 export default function LoginPage() {
   const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
-  const locale = pathname.split('/')[1] === 'en' ? 'en' : 'ro'
-  const t = i18n[locale]
+  const params = useParams()
+  const locale = (params.locale as string ?? 'ro') as keyof typeof i18n
+  const t = i18n[locale] ?? i18n['ro']
   const redirectTo = searchParams.get('redirectTo') ?? `/${locale}/dashboard`
   const [showPassword, setShowPassword] = useState(false)
   const [loadingGoogle, setLoadingGoogle] = useState(false)

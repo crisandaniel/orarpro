@@ -240,48 +240,59 @@ export function generateSchedule(input: GenerationInput): GenerationResult {
         (c) => c.type === 'pair_forbidden' && c.is_active
       )
 
-      // ── Score-based sort for shift consistency ─────────────────────────────
-      // Each candidate gets a score (lower = preferred):
-      //   - Base: hours worked so far (balance)
-      //   - Bonus -1000: employee worked THIS SAME shift yesterday (continuity)
-      //   - Bonus -500: employee worked this shift in the last 3 days
-      //   - Penalty +500: employee worked a DIFFERENT shift yesterday (avoid switching)
-      // This keeps employees on consistent shift patterns while still respecting
-      // balance and all hard constraints.
+      // ── Two-phase scoring: balance FIRST, consistency SECOND ──────────────
+      //
+      // Problem with pure greedy: if employee A worked this shift yesterday
+      // and gets a consistency bonus, A might score lower than employee B
+      // who has 0 hours — so B never gets assigned.
+      //
+      // Solution: normalize hours to [0,1] range across all employees,
+      // then add consistency as a tiebreaker within similar hour bands.
+      // This ensures everyone gets roughly equal hours before consistency matters.
       const prevDateStr = format(addDays(parseISO(date), -1), 'yyyy-MM-dd')
       const prev3Dates = [-1, -2, -3].map(d => format(addDays(parseISO(date), d), 'yyyy-MM-dd'))
+      const consistency = config.shift_consistency ?? 2
+
+      // Find min/max hours for normalization
+      const allHours = employees.map(e => hoursPerEmployee[e.id] ?? 0)
+      const minH = Math.min(...allHours)
+      const maxH = Math.max(...allHours)
+      const hourRange = maxH - minH || 1
 
       const shiftScore = (emp: typeof employees[0]): number => {
         const hours = hoursPerEmployee[emp.id] ?? 0
-        // What shift did this employee work yesterday?
-        const yesterdayAssignment = assignments.find(
-          a => a.employee_id === emp.id && a.date === prevDateStr
-        )
-        // What shifts did they work in last 3 days?
-        const recentShiftIds = prev3Dates
-          .map(d => assignments.find(a => a.employee_id === emp.id && a.date === d)?.shift_definition_id)
-          .filter(Boolean)
 
-        let score = hours
+        // Phase 1: Balance score (0-100, lower = fewer hours = higher priority)
+        // This is the dominant factor — always prefer less-worked employees
+        const balanceScore = ((hours - minH) / hourRange) * 100
 
-        // shift_consistency: 0 = ignore (pure balance), 1 = mild, 2 = strong (default)
-        const consistency = config.shift_consistency ?? 2
-        if (consistency > 0 && yesterdayAssignment) {
-          if (yesterdayAssignment.shift_definition_id === shiftDef.id) {
-            // Same shift yesterday → preference scales with consistency setting
-            score -= consistency * 500
-          } else {
-            // Different shift yesterday → penalty scales with consistency setting
-            score += consistency * 250
+        // Phase 2: Consistency tiebreaker (only meaningful within ±10h of each other)
+        // Applied as fractional adjustment so it can't override balance
+        let consistencyAdj = 0
+        if (consistency > 0) {
+          const yesterdayAssignment = assignments.find(
+            a => a.employee_id === emp.id && a.date === prevDateStr
+          )
+          const recentShiftIds = prev3Dates
+            .map(d => assignments.find(a => a.employee_id === emp.id && a.date === d)?.shift_definition_id)
+            .filter(Boolean)
+
+          if (yesterdayAssignment) {
+            if (yesterdayAssignment.shift_definition_id === shiftDef.id) {
+              // Same shift yesterday → reward continuity (max -5 points)
+              consistencyAdj -= consistency * 2.5
+            } else {
+              // Different shift → mild penalty (max +2.5 points)
+              consistencyAdj += consistency * 1.25
+            }
+          }
+          // Worked this shift in last 3 days → small reward
+          if (recentShiftIds.includes(shiftDef.id)) {
+            consistencyAdj -= consistency * 1.0
           }
         }
 
-        // Worked this shift recently (2-3 days ago) → mild preference
-        if (consistency > 0 && recentShiftIds.includes(shiftDef.id) && yesterdayAssignment?.shift_definition_id !== shiftDef.id) {
-          score -= consistency * 150
-        }
-
-        return score
+        return balanceScore + consistencyAdj
       }
 
       const available = employees

@@ -4,6 +4,7 @@
 // Replaces billing in the nav during beta.
 // Saves to contact_requests table in Supabase.
 
+import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { Sparkles, Users, Calendar, Zap, CheckCircle, ArrowRight, Loader2, MessageSquare } from 'lucide-react'
 

@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
+import { getOrgContext } from '@/lib/dal/org'
 
 export async function POST(
   request: Request,
@@ -24,19 +25,14 @@ export async function POST(
   }
 
   // Verify schedule belongs to user's organization
-  const { data: membership } = await admin
-    .from('organization_members')
-    .select('organization_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!membership) return NextResponse.json({ error: 'No organization' }, { status: 400 })
+  const ctx = await getOrgContext(user.id)
+  if (!ctx) return NextResponse.json({ error: 'No organization' }, { status: 400 })
 
   const { data: schedule } = await admin
     .from('schedules')
     .select('id')
     .eq('id', scheduleId)
-    .eq('organization_id', membership.organization_id)
+    .eq('organization_id', ctx.org.id)
     .single()
 
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
@@ -46,7 +42,7 @@ export async function POST(
     .from('shift_definitions')
     .insert(
       shifts.map((s: any) => ({
-        organization_id: membership.organization_id,
+        organization_id: ctx.org.id,
         name: s.name,
         shift_type: s.shift_type,
         start_time: s.start_time,
