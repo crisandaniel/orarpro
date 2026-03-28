@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { name, country_code } = await request.json()
+  const { name, country_code, org_type } = await request.json()
   if (!name || name.length < 2) {
     return NextResponse.json({ error: 'Organization name is required' }, { status: 400 })
   }
@@ -32,21 +32,38 @@ export async function POST(request: Request) {
   // Use admin client to bypass RLS for inserts
   const admin = createAdminClient()
 
-  // Check if user already has an organization
-  const { data: existing } = await admin
+  // Check for duplicate name for this user's orgs
+  const { data: userMemberships } = await admin
     .from('organization_members')
     .select('organization_id')
     .eq('user_id', user.id)
-    .single()
 
-  if (existing) {
-    return NextResponse.json({ error: 'User already has an organization' }, { status: 400 })
+  if (userMemberships && userMemberships.length > 0) {
+    const orgIds = userMemberships.map(m => m.organization_id)
+    const { data: existing } = await admin
+      .from('organizations')
+      .select('id')
+      .in('id', orgIds)
+      .ilike('name', name.trim())
+      .limit(1)
+    if (existing && existing.length > 0) {
+      return NextResponse.json({ error: 'Ai deja o organizație cu acest nume.' }, { status: 400 })
+    }
   }
 
+  // Ensure profile exists — Google OAuth may not trigger handle_new_user() reliably
+  await admin.from('profiles').upsert({
+    id: user.id,
+    email: user.email ?? '',
+    full_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
+    avatar_url: user.user_metadata?.avatar_url ?? null,
+  }, { onConflict: 'id', ignoreDuplicates: true })
+
   // Create organization (admin bypasses RLS)
+  // Multiple orgs per user are allowed — active org is tracked in profiles
   const { data: org, error: orgError } = await admin
     .from('organizations')
-    .insert({ name, country_code: country_code || 'RO' })
+    .insert({ name, country_code: country_code || 'RO', org_type: org_type || 'business' })
     .select()
     .single()
 
@@ -70,6 +87,11 @@ export async function POST(request: Request) {
     await admin.from('organizations').delete().eq('id', org.id)
     return NextResponse.json({ error: memberError.message }, { status: 500 })
   }
+
+  // Set as active organization for this user
+  await admin.from('profiles')
+    .update({ active_organization_id: org.id })
+    .eq('id', user.id)
 
   return NextResponse.json({ success: true, organizationId: org.id })
 }

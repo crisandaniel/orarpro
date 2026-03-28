@@ -1,244 +1,307 @@
--- ─────────────────────────────────────────────────────────────────────────────
+-- =============================================================================
 -- 004_rls.sql
--- Row Level Security — every user sees only their organization's data
--- This is also the GDPR data isolation layer
--- ─────────────────────────────────────────────────────────────────────────────
+-- Row Level Security — every user sees only their organization's data.
+-- Uses separate SELECT / INSERT / UPDATE / DELETE policies for each table.
+-- This avoids the FOR ALL + WITH CHECK null issue in PostgreSQL/Supabase.
+-- =============================================================================
 
 -- Enable RLS on all tables
-alter table public.profiles               enable row level security;
-alter table public.organizations          enable row level security;
-alter table public.organization_members   enable row level security;
-alter table public.employees              enable row level security;
-alter table public.employee_leaves        enable row level security;
-alter table public.employee_unavailability enable row level security;
-alter table public.shift_definitions      enable row level security;
-alter table public.schedules              enable row level security;
-alter table public.schedule_shifts        enable row level security;
-alter table public.shift_assignments      enable row level security;
-alter table public.constraints            enable row level security;
-alter table public.subjects               enable row level security;
-alter table public.teacher_subjects       enable row level security;
+alter table public.profiles                   enable row level security;
+alter table public.organizations              enable row level security;
+alter table public.organization_members       enable row level security;
+alter table public.employees                  enable row level security;
+alter table public.employee_leaves            enable row level security;
+alter table public.employee_unavailability    enable row level security;
+alter table public.shift_definitions          enable row level security;
+alter table public.schedules                  enable row level security;
+alter table public.schedule_shifts            enable row level security;
+alter table public.shift_assignments          enable row level security;
+alter table public.constraints                enable row level security;
 
--- ─── Helper function ─────────────────────────────────────────────────────────
--- Returns org IDs where the current user is a member
+-- =============================================================================
+-- HELPER FUNCTIONS
+-- =============================================================================
 
 create or replace function public.user_org_ids()
 returns setof uuid language sql security definer stable as $$
-  select organization_id
-  from public.organization_members
+  select organization_id from public.organization_members
   where user_id = auth.uid()
 $$;
 
--- Returns true if user has a specific role (or higher) in an org
 create or replace function public.user_has_role(org_id uuid, required_role member_role)
 returns boolean language sql security definer stable as $$
   select exists (
     select 1 from public.organization_members
-    where organization_id = org_id
-      and user_id = auth.uid()
-      and (
-        case required_role
-          when 'viewer' then role in ('viewer','editor','admin','owner')
-          when 'editor' then role in ('editor','admin','owner')
-          when 'admin'  then role in ('admin','owner')
-          when 'owner'  then role = 'owner'
-        end
-      )
+    where organization_id = org_id and user_id = auth.uid()
+      and (case required_role
+        when 'viewer' then role in ('viewer','editor','admin','owner')
+        when 'editor' then role in ('editor','admin','owner')
+        when 'admin'  then role in ('admin','owner')
+        when 'owner'  then role = 'owner'
+      end)
   )
 $$;
 
--- ─── Profiles ────────────────────────────────────────────────────────────────
+-- =============================================================================
+-- PROFILES
+-- =============================================================================
 
-create policy "Users can view their own profile"
-  on public.profiles for select
-  using (id = auth.uid());
+create policy "profiles_select" on public.profiles
+  for select to authenticated using (id = auth.uid());
+create policy "profiles_update" on public.profiles
+  for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 
-create policy "Users can update their own profile"
-  on public.profiles for update
-  using (id = auth.uid());
+-- =============================================================================
+-- ORGANIZATIONS
+-- =============================================================================
 
--- ─── Organizations ────────────────────────────────────────────────────────────
-
-create policy "Members can view their organizations"
-  on public.organizations for select
+create policy "organizations_select" on public.organizations
+  for select to authenticated
   using (id in (select public.user_org_ids()));
-
-create policy "Owners can update their organization"
-  on public.organizations for update
+create policy "organizations_insert" on public.organizations
+  for insert to authenticated
+  with check (auth.uid() is not null);
+create policy "organizations_update" on public.organizations
+  for update to authenticated
+  using (public.user_has_role(id, 'owner'))
+  with check (public.user_has_role(id, 'owner'));
+create policy "organizations_delete" on public.organizations
+  for delete to authenticated
   using (public.user_has_role(id, 'owner'));
 
-create policy "Authenticated users can create organizations"
-  on public.organizations for insert
-  with check (auth.uid() is not null);
+-- =============================================================================
+-- ORGANIZATION MEMBERS
+-- =============================================================================
 
--- ─── Organization Members ─────────────────────────────────────────────────────
-
-create policy "Members can view org members"
-  on public.organization_members for select
+create policy "org_members_select" on public.organization_members
+  for select to authenticated
   using (organization_id in (select public.user_org_ids()));
-
-create policy "Admins can manage members"
-  on public.organization_members for all
+create policy "org_members_insert" on public.organization_members
+  for insert to authenticated
+  with check (user_id = auth.uid() and role = 'owner');
+create policy "org_members_update" on public.organization_members
+  for update to authenticated
+  using (public.user_has_role(organization_id, 'admin'))
+  with check (public.user_has_role(organization_id, 'admin'));
+create policy "org_members_delete" on public.organization_members
+  for delete to authenticated
   using (public.user_has_role(organization_id, 'admin'));
 
-create policy "Users can insert themselves as owner on new org"
-  on public.organization_members for insert
-  with check (user_id = auth.uid() and role = 'owner');
+-- =============================================================================
+-- EMPLOYEES
+-- =============================================================================
 
--- ─── Employees ───────────────────────────────────────────────────────────────
-
-create policy "Members can view employees"
-  on public.employees for select
+create policy "employees_select" on public.employees
+  for select to authenticated
   using (organization_id in (select public.user_org_ids()));
-
-create policy "Editors can manage employees"
-  on public.employees for all
+create policy "employees_insert" on public.employees
+  for insert to authenticated
+  with check (public.user_has_role(organization_id, 'editor'));
+create policy "employees_update" on public.employees
+  for update to authenticated
+  using (public.user_has_role(organization_id, 'editor'))
+  with check (public.user_has_role(organization_id, 'editor'));
+create policy "employees_delete" on public.employees
+  for delete to authenticated
   using (public.user_has_role(organization_id, 'editor'));
 
--- ─── Employee Leaves ─────────────────────────────────────────────────────────
+-- =============================================================================
+-- EMPLOYEE LEAVES
+-- =============================================================================
 
-create policy "Members can view leaves"
-  on public.employee_leaves for select
-  using (
-    employee_id in (
-      select id from public.employees
-      where organization_id in (select public.user_org_ids())
-    )
-  );
+create policy "employee_leaves_select" on public.employee_leaves
+  for select to authenticated
+  using (employee_id in (
+    select id from public.employees
+    where organization_id in (select public.user_org_ids())
+  ));
+create policy "employee_leaves_insert" on public.employee_leaves
+  for insert to authenticated
+  with check (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ));
+create policy "employee_leaves_update" on public.employee_leaves
+  for update to authenticated
+  using (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ))
+  with check (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ));
+create policy "employee_leaves_delete" on public.employee_leaves
+  for delete to authenticated
+  using (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ));
 
-create policy "Editors can manage leaves"
-  on public.employee_leaves for all
-  using (
-    employee_id in (
-      select e.id from public.employees e
-      where public.user_has_role(e.organization_id, 'editor')
-    )
-  );
+-- =============================================================================
+-- EMPLOYEE UNAVAILABILITY
+-- =============================================================================
 
--- ─── Employee Unavailability ──────────────────────────────────────────────────
+create policy "employee_unavail_select" on public.employee_unavailability
+  for select to authenticated
+  using (employee_id in (
+    select id from public.employees
+    where organization_id in (select public.user_org_ids())
+  ));
+create policy "employee_unavail_insert" on public.employee_unavailability
+  for insert to authenticated
+  with check (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ));
+create policy "employee_unavail_update" on public.employee_unavailability
+  for update to authenticated
+  using (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ))
+  with check (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ));
+create policy "employee_unavail_delete" on public.employee_unavailability
+  for delete to authenticated
+  using (employee_id in (
+    select e.id from public.employees e
+    where public.user_has_role(e.organization_id, 'editor')
+  ));
 
-create policy "Members can view unavailability"
-  on public.employee_unavailability for select
-  using (
-    employee_id in (
-      select id from public.employees
-      where organization_id in (select public.user_org_ids())
-    )
-  );
+-- =============================================================================
+-- SHIFT DEFINITIONS
+-- =============================================================================
 
-create policy "Editors can manage unavailability"
-  on public.employee_unavailability for all
-  using (
-    employee_id in (
-      select e.id from public.employees e
-      where public.user_has_role(e.organization_id, 'editor')
-    )
-  );
-
--- ─── Shift Definitions ───────────────────────────────────────────────────────
-
-create policy "Members can view shift definitions"
-  on public.shift_definitions for select
+create policy "shift_defs_select" on public.shift_definitions
+  for select to authenticated
   using (organization_id in (select public.user_org_ids()));
-
-create policy "Editors can manage shift definitions"
-  on public.shift_definitions for all
+create policy "shift_defs_insert" on public.shift_definitions
+  for insert to authenticated
+  with check (public.user_has_role(organization_id, 'editor'));
+create policy "shift_defs_update" on public.shift_definitions
+  for update to authenticated
+  using (public.user_has_role(organization_id, 'editor'))
+  with check (public.user_has_role(organization_id, 'editor'));
+create policy "shift_defs_delete" on public.shift_definitions
+  for delete to authenticated
   using (public.user_has_role(organization_id, 'editor'));
 
--- ─── Schedules ───────────────────────────────────────────────────────────────
+-- =============================================================================
+-- SCHEDULES
+-- =============================================================================
 
-create policy "Members can view schedules"
-  on public.schedules for select
+create policy "schedules_select" on public.schedules
+  for select to authenticated
   using (organization_id in (select public.user_org_ids()));
-
-create policy "Editors can manage schedules"
-  on public.schedules for all
+create policy "schedules_insert" on public.schedules
+  for insert to authenticated
+  with check (public.user_has_role(organization_id, 'editor'));
+create policy "schedules_update" on public.schedules
+  for update to authenticated
+  using (public.user_has_role(organization_id, 'editor'))
+  with check (public.user_has_role(organization_id, 'editor'));
+create policy "schedules_delete" on public.schedules
+  for delete to authenticated
   using (public.user_has_role(organization_id, 'editor'));
 
--- ─── Schedule Shifts ─────────────────────────────────────────────────────────
+-- =============================================================================
+-- SCHEDULE SHIFTS
+-- =============================================================================
 
-create policy "Members can view schedule shifts"
-  on public.schedule_shifts for select
-  using (
-    schedule_id in (
-      select id from public.schedules
-      where organization_id in (select public.user_org_ids())
-    )
-  );
+create policy "schedule_shifts_select" on public.schedule_shifts
+  for select to authenticated
+  using (schedule_id in (
+    select id from public.schedules
+    where organization_id in (select public.user_org_ids())
+  ));
+create policy "schedule_shifts_insert" on public.schedule_shifts
+  for insert to authenticated
+  with check (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
+create policy "schedule_shifts_update" on public.schedule_shifts
+  for update to authenticated
+  using (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ))
+  with check (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
+create policy "schedule_shifts_delete" on public.schedule_shifts
+  for delete to authenticated
+  using (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
 
-create policy "Editors can manage schedule shifts"
-  on public.schedule_shifts for all
-  using (
-    schedule_id in (
-      select s.id from public.schedules s
-      where public.user_has_role(s.organization_id, 'editor')
-    )
-  );
+-- =============================================================================
+-- SHIFT ASSIGNMENTS
+-- =============================================================================
 
--- ─── Shift Assignments ───────────────────────────────────────────────────────
+create policy "shift_assignments_select" on public.shift_assignments
+  for select to authenticated
+  using (schedule_id in (
+    select id from public.schedules
+    where organization_id in (select public.user_org_ids())
+  ));
+create policy "shift_assignments_insert" on public.shift_assignments
+  for insert to authenticated
+  with check (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
+create policy "shift_assignments_update" on public.shift_assignments
+  for update to authenticated
+  using (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ))
+  with check (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
+create policy "shift_assignments_delete" on public.shift_assignments
+  for delete to authenticated
+  using (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
 
-create policy "Members can view assignments"
-  on public.shift_assignments for select
-  using (
-    schedule_id in (
-      select id from public.schedules
-      where organization_id in (select public.user_org_ids())
-    )
-  );
+-- =============================================================================
+-- CONSTRAINTS
+-- =============================================================================
 
-create policy "Editors can manage assignments"
-  on public.shift_assignments for all
-  using (
-    schedule_id in (
-      select s.id from public.schedules s
-      where public.user_has_role(s.organization_id, 'editor')
-    )
-  );
-
--- ─── Constraints ─────────────────────────────────────────────────────────────
-
-create policy "Members can view constraints"
-  on public.constraints for select
-  using (
-    schedule_id in (
-      select id from public.schedules
-      where organization_id in (select public.user_org_ids())
-    )
-  );
-
-create policy "Editors can manage constraints"
-  on public.constraints for all
-  using (
-    schedule_id in (
-      select s.id from public.schedules s
-      where public.user_has_role(s.organization_id, 'editor')
-    )
-  );
-
--- ─── Subjects ────────────────────────────────────────────────────────────────
-
-create policy "Members can view subjects"
-  on public.subjects for select
-  using (organization_id in (select public.user_org_ids()));
-
-create policy "Editors can manage subjects"
-  on public.subjects for all
-  using (public.user_has_role(organization_id, 'editor'));
-
-create policy "Members can view teacher subjects"
-  on public.teacher_subjects for select
-  using (
-    employee_id in (
-      select id from public.employees
-      where organization_id in (select public.user_org_ids())
-    )
-  );
-
-create policy "Editors can manage teacher subjects"
-  on public.teacher_subjects for all
-  using (
-    employee_id in (
-      select e.id from public.employees e
-      where public.user_has_role(e.organization_id, 'editor')
-    )
-  );
+create policy "constraints_select" on public.constraints
+  for select to authenticated
+  using (schedule_id in (
+    select id from public.schedules
+    where organization_id in (select public.user_org_ids())
+  ));
+create policy "constraints_insert" on public.constraints
+  for insert to authenticated
+  with check (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
+create policy "constraints_update" on public.constraints
+  for update to authenticated
+  using (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ))
+  with check (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));
+create policy "constraints_delete" on public.constraints
+  for delete to authenticated
+  using (schedule_id in (
+    select s.id from public.schedules s
+    where public.user_has_role(s.organization_id, 'editor')
+  ));

@@ -4,10 +4,13 @@
 // Accessible at /ro/contact and /en/contact.
 // Used by: privacy policy and terms of service pages.
 
+import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { CheckCircle, ArrowRight, Loader2 } from 'lucide-react'
 
 export default function PublicContactPage() {
+  const params = useParams()
+  const locale = params.locale as string ?? 'ro'
   const [name, setName]       = useState('')
   const [email, setEmail]     = useState('')
   const [message, setMessage] = useState('')

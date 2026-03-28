@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
   verification: {
     // Google Search Console — completează după ce obții codul de verificare
-    google: 'G-244L3D68D7',
+    // google: 'CODUL_TĂU_AICI',
   },
 }
 

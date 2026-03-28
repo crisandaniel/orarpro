@@ -8,9 +8,8 @@
 
 
 
-import { createClient } from '@/lib/supabase/client'
-
 import { useState } from 'react'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useTranslations } from 'next-intl'
 import { DatePicker } from '@/components/ui/DatePicker'
 import { useRouter } from 'next/navigation'
@@ -371,7 +370,6 @@ function EmployeeDetails({
   leaves: EmployeeLeave[]
   unavailability: EmployeeUnavailability[]
 }) {
-  const supabase = createClient()
   const router = useRouter()
   const tEmp = useTranslations('employees')
   const tCommon = useTranslations('common')
@@ -385,19 +383,19 @@ function EmployeeDetails({
   })
 
   async function addLeave(data: z.infer<typeof leaveSchema>) {
-    const { data: created, error } = await supabase
-      .from('employee_leaves')
-      .insert({
+    const res = await fetch('/api/employees/leaves', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         employee_id: employee.id,
         start_date: data.start_date,
         end_date: data.end_date,
         reason: data.reason || null,
-      })
-      .select()
-      .single()
-
-    if (error) { toast.error('Failed to add leave'); return }
-    setCurrentLeaves((prev) => [...prev, created as any])
+      }),
+    })
+    const result = await res.json()
+    if (!res.ok) { toast.error(result.error ?? 'Failed to add leave'); return }
+    setCurrentLeaves((prev) => [...prev, result.data])
     setShowLeaveForm(false)
     reset()
     setLeaveStart('')
@@ -406,7 +404,11 @@ function EmployeeDetails({
   }
 
   async function removeLeave(id: string) {
-    await supabase.from('employee_leaves').delete().eq('id', id)
+    await fetch('/api/employees/leaves', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leaveId: id }),
+    })
     setCurrentLeaves((prev) => prev.filter((l) => l.id !== id))
   }
 

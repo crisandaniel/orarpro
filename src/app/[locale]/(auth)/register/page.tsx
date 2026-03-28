@@ -11,7 +11,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { usePathname } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -76,9 +76,9 @@ const i18n = {
 }
 
 export default function RegisterPage() {
-  const pathname = usePathname()
-  const locale = pathname.split('/')[1] === 'en' ? 'en' : 'ro'
-  const t = i18n[locale]
+  const params = useParams()
+  const locale = (params.locale as string ?? 'ro') as keyof typeof i18n
+  const t = i18n[locale] ?? i18n['ro']
   const [confirmationSent, setConfirmationSent] = useState(false)
   const supabase = createClient()
 

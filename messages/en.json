@@ -30,6 +30,7 @@
     "dashboard": "Dashboard",
     "schedules": "Schedules",
     "employees": "Employees",
+    "resources": "Resources",
     "settings": "Settings",
     "billing": "Billing",
     "contact": "Contact",
@@ -124,7 +125,10 @@
     "noSchedulesHint": "Create your first schedule to start assigning shifts to your team.",
     "createFirst": "Create first schedule",
     "mon": "Mon", "tue": "Tue", "wed": "Wed",
-    "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun"
+    "thu": "Thu", "fri": "Fri", "sat": "Sat", "sun": "Sun",
+    "status": "Status",
+    "period": "Period",
+    "noSchedulesDesc": "schedule.noSchedulesDesc"
   },
   "shifts": {
     "title": "Shift types",
