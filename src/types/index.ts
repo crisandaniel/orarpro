@@ -15,7 +15,7 @@ export type ConstraintType   =
   | 'rest_after_shift' | 'max_consecutive'
   | 'max_weekly_hours' | 'max_night_shifts'
   | 'min_seniority' | 'min_staff' | 'fixed_shift'
-export type RoomType         = 'classroom' | 'lab' | 'gym' | 'amphitheater' | 'seminar' | 'workshop'
+export type RoomType         = 'homeroom' | 'gym' | 'computer_lab' | 'chemistry_lab' | 'generic'
 export type SubjectDifficulty = 'hard' | 'medium' | 'easy'
 export type LessonType       = 'regular' | 'lecture' | 'seminar' | 'lab'
 
@@ -191,14 +191,23 @@ export interface Constraint {
 
 // ── School ────────────────────────────────────────────────────────────────────
 
+// ── School types (v3) ────────────────────────────────────────────────────────
+
+export type ClassStage = 'primary' | 'middle' | 'high' | 'university'
+
 export interface SchoolTeacher {
   id: string
   organization_id: string
   name: string
-  email: string | null
-  max_periods_per_day: number
-  max_periods_per_week: number
   color: string
+  // Sloturi în care NU poate preda — format "day-period" ex: "0-3" = Luni ora 4
+  unavailable_slots: string[]
+  // Sloturi preferate (soft constraint)
+  preferred_slots: string[]
+  // Limite ore (null = fără limită)
+  max_lessons_per_day:  number | null
+  max_lessons_per_week: number | null
+  min_lessons_per_week: number | null  // normă minimă — hard când setat
   created_at: string
 }
 
@@ -206,10 +215,10 @@ export interface SchoolSubject {
   id: string
   organization_id: string
   name: string
-  short_name: string
+  short_name: string | null
   color: string
+  required_room_type: RoomType | null   // null = orice sală
   difficulty: SubjectDifficulty
-  required_room_type: RoomType
   created_at: string
 }
 
@@ -217,17 +226,10 @@ export interface SchoolClass {
   id: string
   organization_id: string
   name: string
-  year: number
-  student_count: number
-  has_groups: boolean
-  created_at: string
-}
-
-export interface SchoolGroup {
-  id: string
-  class_id: string
-  name: string
-  student_count: number
+  grade_number: number
+  stage: ClassStage
+  max_lessons_per_day: number
+  homeroom_id: string | null
   created_at: string
 }
 
@@ -235,52 +237,8 @@ export interface SchoolRoom {
   id: string
   organization_id: string
   name: string
-  room_type: RoomType
-  capacity: number
-  building: string | null
-  created_at: string
-}
-
-export interface SchoolConfig {
-  id: string
-  schedule_id: string
-  institution_type: 'primary' | 'middle' | 'highschool' | 'university'
-  periods_per_day: number
-  period_duration_min: number
-  first_period_start: string
-  max_periods_per_day: number
-  min_periods_per_day: number
-  avoid_teacher_windows: boolean
-  hard_subjects_morning: boolean
-  created_at: string
-}
-
-export interface SchoolAssignment {
-  id: string
-  schedule_id: string
-  teacher_id: string
-  subject_id: string
-  class_id: string
-  group_id: string | null
-  lesson_type: LessonType
-  periods_per_week: number
-  requires_consecutive: boolean
-  preferred_room_id: string | null
-  created_at: string
-}
-
-export interface SchoolLesson {
-  id: string
-  schedule_id: string
-  assignment_id: string
-  teacher_id: string
-  subject_id: string
-  class_id: string
-  group_id: string | null
-  room_id: string | null
-  day: number
-  period: number
-  is_manual_override: boolean
+  type: RoomType
+  capacity: number | null
   created_at: string
 }
 
@@ -289,6 +247,73 @@ export interface SchoolResources {
   subjects: SchoolSubject[]
   classes: SchoolClass[]
   rooms: SchoolRoom[]
+}
+
+// SoftRules — stocate ca jsonb în schedule_configs
+export interface SoftRules {
+  avoidGapsForTeachers?:       boolean
+  avoidLastHourForStages?:     ClassStage[]
+  avoidSameSubjectTwicePerDay?: boolean
+  hardSubjectsMorning?:        boolean
+  startFromFirstSlot?:         boolean
+  weights: {
+    teacherGaps:  number  // 0-100
+    lastHour:     number  // 0-100
+    sameSubject:  number  // 0-100
+    hardMorning:  number  // 0-100
+    startFirst:   number  // 0-100
+  }
+}
+
+export interface ScheduleConfig {
+  id: string
+  schedule_id: string
+  days_per_week:    number
+  slots_per_day:    number
+  slot_duration:    number
+  first_slot_start: string
+  soft_rules:       SoftRules
+  solver_used:      string | null
+  generated_at:     string | null
+  created_at:       string
+}
+
+export interface CurriculumItem {
+  id: string
+  schedule_id: string
+  class_id: string
+  subject_id: string
+  teacher_id: string
+  weekly_hours: number
+  lesson_pattern: number[] | null  // null = implicit [1,1,...,1]
+  preferred_room_id: string | null
+  created_at: string
+}
+
+export interface SchoolLesson {
+  id: string
+  schedule_id: string
+  class_id: string
+  subject_id: string
+  teacher_id: string
+  room_id: string | null
+  day: number      // 0-based (0=Luni)
+  period: number   // 0-based
+  duration: number // 1 sau 2
+  is_manual: boolean
+  created_at: string
+}
+
+// FeasibilityCheck — calculat client-side înainte de generare
+export interface FeasibilityError {
+  type: 'teacher_overloaded' | 'class_overloaded' | 'no_valid_slot' | 'no_room' | 'pattern_invalid'
+  entity: string   // numele resursei cu problema
+  detail: string   // mesaj human-readable
+}
+
+export interface FeasibilityCheck {
+  ok: boolean
+  errors: FeasibilityError[]
 }
 
 // ── Holidays ──────────────────────────────────────────────────────────────────

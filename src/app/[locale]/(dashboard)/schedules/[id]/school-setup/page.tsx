@@ -1,10 +1,10 @@
-// School setup page — server shell loads org resources, client handles wizard.
+// school-setup/page.tsx — server shell.
+// Loads resources + existing config/curriculum/lessons → SchoolSetupClient.
 
 import { redirect, notFound } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/dal/org'
-import { getSchoolResources } from '@/lib/dal/school'
-import { createAdminClient } from '@/lib/supabase/server'
+import { getSchoolResources, getScheduleConfig, getCurriculumItems, getLessons } from '@/lib/dal/school'
 import { SchoolSetupClient } from '@/components/schedule/SchoolSetupClient'
 
 interface Props { params: Promise<{ id: string; locale: string }> }
@@ -18,23 +18,23 @@ export default async function SchoolSetupPage({ params }: Props) {
   const ctx = await getOrgContext(user.id)
   if (!ctx) redirect(`/${locale}/setup`)
 
-  // Verify schedule belongs to this org
   const admin = createAdminClient()
+
   const { data: schedule } = await admin
-    .from('schedules').select('id, name').eq('id', id)
-    .eq('organization_id', ctx.org.id).single()
+    .from('schedules').select('id, name')
+    .eq('id', id).eq('organization_id', ctx.org.id).single()
   if (!schedule) notFound()
 
-  // Load existing config if editing
-  const { data: existingConfig } = await admin
-    .from('school_configs').select('*').eq('schedule_id', id).single()
+  // Load org time config
+  const { data: orgData } = await admin
+    .from('organizations').select('days_per_week, slots_per_day').eq('id', ctx.org.id).single()
 
-  // Load existing assignments
-  const { data: existingAssignments } = await admin
-    .from('school_assignments').select('*').eq('schedule_id', id)
-
-  // Load org resources — defined in /resources page
-  const resources = await getSchoolResources(ctx.org.id)
+  const [resources, config, curriculum, lessons] = await Promise.all([
+    getSchoolResources(ctx.org.id),
+    getScheduleConfig(id),
+    getCurriculumItems(id),
+    getLessons(id),
+  ])
 
   return (
     <SchoolSetupClient
@@ -42,8 +42,12 @@ export default async function SchoolSetupPage({ params }: Props) {
       scheduleName={schedule.name}
       locale={locale}
       resources={resources}
-      existingConfig={existingConfig}
-      existingAssignments={existingAssignments ?? []}
+      existingConfig={config as any}
+      existingCurriculum={curriculum as any}
+      existingLessons={lessons}
+      existingSolverUsed={(config as any)?.solver_used ?? undefined}
+      daysPerWeek={orgData?.days_per_week ?? 5}
+      slotsPerDay={orgData?.slots_per_day ?? 8}
     />
   )
 }
