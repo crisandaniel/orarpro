@@ -53,6 +53,9 @@ create table public.organizations (
   subscription_ends_at   timestamptz,
   -- Limits
   max_employees          int not null default 10,
+  -- TimeConfig defaults (editabile per orar, dar moștenite de aici)
+  days_per_week          smallint not null default 5,
+  slots_per_day          smallint not null default 8,
   created_at             timestamptz not null default now(),
   updated_at             timestamptz not null default now()
 );

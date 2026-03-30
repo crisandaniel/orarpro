@@ -11,10 +11,56 @@ const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? ''
 
 export const metadata: Metadata = {
   title: {
-    default: 'OrarPro — Smart Scheduling',
+    default: 'OrarPro — Generator de Orar Inteligent',
     template: '%s | OrarPro',
   },
-  description: 'Schedule generator for HoReCa, factories, schools and retail',
+  description: 'Generator de orar automat pentru școli, licee și universități. CP-SAT solver, constrângeri configurabile, export PDF.',
+  keywords: ['generator orar', 'orar școală', 'orar liceu', 'planificare orar', 'timetable generator', 'school schedule'],
+  authors: [{ name: 'OrarPro' }],
+  creator: 'OrarPro',
+  publisher: 'OrarPro',
+  metadataBase: new URL('https://www.orarpro.ro'),
+  alternates: {
+    canonical: '/',
+    languages: {
+      'ro': '/ro',
+      'en': '/en',
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'ro_RO',
+    alternateLocale: 'en_US',
+    url: 'https://www.orarpro.ro',
+    siteName: 'OrarPro',
+    title: 'OrarPro — Generator de Orar Inteligent',
+    description: 'Generator de orar automat pentru școli, licee și universități. CP-SAT solver, constrângeri configurabile, export PDF.',
+    images: [
+      {
+        url: '/og-image.png',  // 1200×630px — de creat
+        width: 1200,
+        height: 630,
+        alt: 'OrarPro — Generator de Orar',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'OrarPro — Generator de Orar Inteligent',
+    description: 'Generator de orar automat pentru școli, licee și universități.',
+    images: ['/og-image.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   manifest: '/manifest.json',
   icons: {
     icon: [
@@ -26,8 +72,7 @@ export const metadata: Metadata = {
     apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
   },
   verification: {
-    // Google Search Console — completează după ce obții codul de verificare
-    // google: 'CODUL_TĂU_AICI',
+    google: 'G-244L3D68D7',
   },
 }
 

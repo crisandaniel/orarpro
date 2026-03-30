@@ -26,6 +26,16 @@ export default async function ResourcesPage({ params }: Props) {
 
   const resources = await getSchoolResources(ctx.org.id)
 
+  // Load TimeConfig from org
+  const { createAdminClient } = await import('@/lib/supabase/server')
+  const admin = createAdminClient()
+  const { data: orgData } = await admin
+    .from('organizations').select('days_per_week, slots_per_day').eq('id', ctx.org.id).single()
+  const timeConfig = {
+    days_per_week: orgData?.days_per_week ?? 5,
+    slots_per_day: orgData?.slots_per_day ?? 8,
+  }
+
   return (
     <div style={{ maxWidth: '860px' }}>
       <div style={{ marginBottom: '24px' }}>
@@ -38,6 +48,7 @@ export default async function ResourcesPage({ params }: Props) {
       </div>
       <ResourcesClient
         orgId={ctx.org.id}
+        initialTimeConfig={timeConfig}
         initialResources={resources}
       />
     </div>

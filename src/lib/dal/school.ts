@@ -1,8 +1,11 @@
 // src/lib/dal/school.ts
-// Data Access Layer for school resources: teachers, subjects, classes, rooms.
+// Data Access Layer for school resources and schedule data.
+// Used by server components and API routes.
 
 import { createAdminClient } from '@/lib/supabase/server'
-import type { SchoolResources, SchoolTeacher, SchoolSubject, SchoolClass, SchoolRoom } from '@/types'
+import type { SchoolResources } from '@/types'
+
+// ── Org-level resources ───────────────────────────────────────────────────────
 
 export async function getSchoolResources(orgId: string): Promise<SchoolResources> {
   const admin = createAdminClient()
@@ -15,32 +18,57 @@ export async function getSchoolResources(orgId: string): Promise<SchoolResources
   ])
 
   return {
-    teachers: (teachersRes.data ?? []) as SchoolTeacher[],
-    subjects: (subjectsRes.data ?? []) as SchoolSubject[],
-    classes: (classesRes.data ?? []) as SchoolClass[],
-    rooms: (roomsRes.data ?? []) as SchoolRoom[],
+    teachers: (teachersRes.data ?? []).map(t => ({
+      ...t,
+      unavailable_slots: t.unavailable_slots ?? [],
+      preferred_slots:   t.preferred_slots   ?? [],
+    })),
+    subjects: subjectsRes.data ?? [],
+    classes:  classesRes.data  ?? [],
+    rooms:    roomsRes.data    ?? [],
   }
 }
 
-export async function getSchoolScheduleData(scheduleId: string) {
+// ── Schedule-level data ───────────────────────────────────────────────────────
+
+export async function getScheduleConfig(scheduleId: string) {
   const admin = createAdminClient()
+  const { data } = await admin
+    .from('schedule_configs')
+    .select('*')
+    .eq('schedule_id', scheduleId)
+    .single()
+  return data
+}
 
-  const [configRes, assignmentsRes, lessonsRes] = await Promise.all([
-    admin.from('school_configs').select('*').eq('schedule_id', scheduleId).single(),
-    admin.from('school_assignments').select('*').eq('schedule_id', scheduleId),
-    admin.from('school_lessons').select(`
+export async function getCurriculumItems(scheduleId: string) {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('curriculum_items')
+    .select(`
       *,
-      school_teachers(name, color),
-      school_subjects(name, short_name, color),
-      school_classes(name),
-      school_groups(name),
-      school_rooms(name)
-    `).eq('schedule_id', scheduleId),
-  ])
+      school_classes   ( name, grade_number, stage ),
+      school_subjects  ( name, short_name, color, difficulty, required_room_type ),
+      school_teachers  ( name, color ),
+      school_rooms     ( name, type )
+    `)
+    .eq('schedule_id', scheduleId)
+    .order('created_at')
+  return data ?? []
+}
 
-  return {
-    config: configRes.data,
-    assignments: assignmentsRes.data ?? [],
-    lessons: lessonsRes.data ?? [],
-  }
+export async function getLessons(scheduleId: string) {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('school_lessons')
+    .select(`
+      *,
+      school_classes  ( name ),
+      school_subjects ( name, short_name, color ),
+      school_teachers ( name, color ),
+      school_rooms    ( name )
+    `)
+    .eq('schedule_id', scheduleId)
+    .order('day').order('period')
+  return data ?? []
 }
