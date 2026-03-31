@@ -292,7 +292,7 @@ export function SchoolSetupClient({
 
       {/* Setup — 2 col */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: '20px', alignItems: 'start' }}>
-      <div>
+      <div style={{ minWidth: 0, overflowX: 'auto' }}>
 
         {/* Config grid (collapsible) */}
         <div style={{ marginBottom: '16px', border: '0.5px solid #d1d5db', borderRadius: '12px', overflow: 'hidden' }}>
@@ -349,14 +349,81 @@ export function SchoolSetupClient({
         </div>
 
         {activeTab === 'curriculum' && (
-          <CurriculumMatrix
-            classes={classes} subjects={subjects} teachers={teachers} rooms={rooms}
-            matrix={matrix} activeCell={activeCell}
-            selectedCells={selectedCells} multiSubjectId={multiSubjectId}
-            onCellClick={handleCellClick}
-            onSetCell={setCell}
-            onClosePopover={() => setActiveCell(null)}
-          />
+          <>
+            <CurriculumMatrix
+              classes={classes} subjects={subjects} teachers={teachers} rooms={rooms}
+              matrix={matrix} activeCell={activeCell}
+              selectedCells={selectedCells} multiSubjectId={multiSubjectId}
+              onCellClick={handleCellClick}
+              onSetCell={setCell}
+              onClosePopover={() => setActiveCell(null)}
+            />
+
+            {/* ── Statistici ore/săpt per profesor ──────────────────────── */}
+            {curriculumList.length > 0 && (() => {
+              // Calculează total ore per profesor din matrix
+              const teacherStats: Record<string, { name: string; color: string; hours: number; classes: string[] }> = {}
+              for (const cls of classes) {
+                for (const subj of subjects) {
+                  const cell = matrix[cls.id]?.[subj.id]
+                  if (!cell || cell.weekly_hours === 0 || !cell.teacher_id) continue
+                  if (!teacherStats[cell.teacher_id]) {
+                    const t = teachers.find(t => t.id === cell.teacher_id)
+                    teacherStats[cell.teacher_id] = { name: t?.name ?? '?', color: t?.color ?? '#6366f1', hours: 0, classes: [] }
+                  }
+                  teacherStats[cell.teacher_id].hours += cell.weekly_hours
+                  if (!teacherStats[cell.teacher_id].classes.includes(cls.name))
+                    teacherStats[cell.teacher_id].classes.push(cls.name)
+                }
+              }
+              const stats = Object.values(teacherStats).sort((a, b) => b.hours - a.hours)
+              const totalHours = stats.reduce((s, t) => s + t.hours, 0)
+              return (
+                <div style={{ marginTop: '14px', padding: '12px 14px', borderRadius: '10px',
+                  background: '#f9fafb', border: '0.5px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <p style={{ fontSize: '12px', fontWeight: 500, color: '#374151', margin: 0 }}>
+                      Distribuție ore/săpt
+                    </p>
+                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>
+                      Total: {totalHours}h · {stats.length} profesori
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {stats.map(t => {
+                      const pct = Math.round((t.hours / Math.max(totalHours, 1)) * 100)
+                      const teacher = teachers.find(tc => tc.name === t.name)
+                      const maxPw   = teacher?.max_lessons_per_week
+                      const overload = maxPw && t.hours > maxPw
+                      return (
+                        <div key={t.name}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%',
+                              background: t.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: '12px', color: '#111827', flex: 1 }}>{t.name}</span>
+                            <span style={{ fontSize: '12px', fontWeight: 600,
+                              color: overload ? '#dc2626' : '#374151' }}>
+                              {t.hours}h{maxPw ? `/${maxPw}` : ''}
+                              {overload && ' ⚠'}
+                            </span>
+                            <span style={{ fontSize: '11px', color: '#9ca3af', minWidth: '80px', textAlign: 'right',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {t.classes.join(', ')}
+                            </span>
+                          </div>
+                          <div style={{ height: '4px', background: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${pct}%`,
+                              background: overload ? '#dc2626' : t.color,
+                              borderRadius: '2px', transition: 'width 0.3s' }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+          </>
         )}
 
         {activeTab === 'constraints' && (

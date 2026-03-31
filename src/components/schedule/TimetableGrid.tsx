@@ -162,7 +162,8 @@ export function TimetableGrid({
       </div>
 
       {/* Filter controls — entity selector first, then mode toggle */}
-      <div className="print-hide" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+      <div className="print-hide" style={{ overflowX: 'auto', marginBottom: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 'max-content' }}>
         {/* Entity selector — first, prominent */}
         <select value={filterId} onChange={e => setFilterId(e.target.value)}
           style={{ padding: '7px 10px', fontSize: '13px', borderRadius: '8px', border: '0.5px solid #d1d5db', color: '#111827', background: '#fff', cursor: 'pointer', minWidth: '160px' }}>
@@ -181,6 +182,7 @@ export function TimetableGrid({
             </button>
           ))}
         </div>
+      </div>
       </div>
 
       {/* Grid */}

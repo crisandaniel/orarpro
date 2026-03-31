@@ -36,18 +36,18 @@ export function CurriculumMatrix({
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '12px' }}>
+      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: '11px' }}>
         <thead>
           <tr>
-            <th style={{ padding: '8px 12px', background: '#f9fafb', border: '0.5px solid #d1d5db',
-              fontWeight: 500, color: '#374151', textAlign: 'left', position: 'sticky', left: 0, zIndex: 1 }}>
+            <th style={{ padding: '6px 10px', background: '#f9fafb', border: '0.5px solid #d1d5db',
+              fontWeight: 500, color: '#374151', textAlign: 'left', position: 'sticky', left: 0, zIndex: 1, fontSize: '12px', whiteSpace: 'nowrap' as const }}>
               Clasă
             </th>
             {subjects.map(s => (
               <th key={s.id} style={{ padding: '8px 10px', background: '#f9fafb', border: '0.5px solid #d1d5db',
-                fontWeight: 500, color: '#374151', textAlign: 'center', minWidth: '90px' }}>
+                fontWeight: 500, color: '#374151', textAlign: 'center', minWidth: '64px', fontSize: '11px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: s.color, display: 'inline-block' }} />
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: s.color, display: 'inline-block' }} />
                   {s.short_name ?? s.name}
                 </div>
               </th>
@@ -57,8 +57,8 @@ export function CurriculumMatrix({
         <tbody>
           {classes.map(cls => (
             <tr key={cls.id}>
-              <td style={{ padding: '8px 12px', border: '0.5px solid #d1d5db', fontWeight: 500,
-                color: '#111827', background: '#f9fafb', position: 'sticky', left: 0 }}>
+              <td style={{ padding: '5px 8px', border: '0.5px solid #d1d5db', fontWeight: 500,
+                color: '#111827', background: '#f9fafb', position: 'sticky', left: 0, fontSize: '12px', whiteSpace: 'nowrap' as const }}>
                 {cls.name}
               </td>
               {subjects.map(subj => {
@@ -67,33 +67,33 @@ export function CurriculumMatrix({
                 const isSelected    = selectedCells.has(`${cls.id}|${subj.id}`)
                 const missingTeacher = cell && cell.weekly_hours > 0 && !cell.teacher_id
                 return (
-                  <td key={subj.id} style={{ padding: '4px', border: '0.5px solid #d1d5db',
+                  <td key={subj.id} style={{ padding: '2px', border: '0.5px solid #d1d5db',
                     textAlign: 'center', position: 'relative' }}>
                     <button
                       onClick={e => onCellClick(e, cls.id, subj.id)}
-                      style={{ width: '100%', minWidth: '80px', padding: '5px 4px',
+                      style={{ width: '100%', minWidth: '60px', padding: '4px 2px',
                         border: 'none', borderRadius: '6px', cursor: 'pointer',
                         background: cell ? subj.color + '22' : isSelected ? '#eff6ff' : 'transparent',
                         outline: isActive ? `2px solid ${subj.color}` : isSelected ? '2px solid #2563eb' : missingTeacher ? '2px solid #fca5a5' : 'none' }}>
                       {cell ? (
                         <div>
-                          <span style={{ fontWeight: 600, color: '#111827' }}>{cell.weekly_hours}h</span>
+                          <span style={{ fontWeight: 600, color: '#111827', fontSize: '11px' }}>{cell.weekly_hours}h</span>
                           {cell.lesson_pattern && (
-                            <span style={{ fontSize: '10px', color: '#6b7280', display: 'block' }}>
+                            <span style={{ fontSize: '9px', color: '#6b7280', display: 'block' }}>
                               [{cell.lesson_pattern.join(',')}]
                             </span>
                           )}
                           {cell.teacher_id ? (
-                            <span style={{ fontSize: '10px', color: '#6b7280', display: 'block',
+                            <span style={{ fontSize: '9px', color: '#6b7280', display: 'block',
                               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {teachers.find(t => t.id === cell.teacher_id)?.name}
                             </span>
                           ) : (
-                            <span style={{ fontSize: '10px', color: '#dc2626', display: 'block' }}>fără prof ⚠</span>
+                            <span style={{ fontSize: '9px', color: '#dc2626', display: 'block' }}>⚠</span>
                           )}
                         </div>
                       ) : (
-                        <span style={{ color: '#d1d5db', fontSize: '16px' }}>+</span>
+                        <span style={{ color: '#d1d5db', fontSize: '13px' }}>+</span>
                       )}
                     </button>
 

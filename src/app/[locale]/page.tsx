@@ -10,7 +10,7 @@ import { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Generator de Orar',
-  description: 'Creează orarul afacerii tale sau a institutiei de Invatamant în minute cu OrarPro.',
+  description: 'Creează orarul echipei tale automat. Pentru restaurante, fabrici, scoli. Defineste echipa, constrangerile si genereaza orarul.',
   alternates: { canonical: '/ro' },
 }
 
@@ -63,6 +63,7 @@ export default async function LandingPage({
             style={{ background: '#2563eb' }}>
             Începe gratuit
           </Link>
+          <a href={`/${locale}/contact`} style={{ color: '#2563eb' }}>Contact</a>
         </div>
       </nav>
 
