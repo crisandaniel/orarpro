@@ -6,6 +6,13 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Calendar, Users, Bot, CheckCircle, Clock, Shield } from 'lucide-react'
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Generator de Orar',
+  description: 'Creează orarul afacerii tale sau a institutiei de Invatamant în minute cu OrarPro.',
+  alternates: { canonical: '/ro' },
+}
 
 export default async function LandingPage({
   params,
