@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
 
   // Strip locale prefix for path matching
   const pathWithoutLocale = pathname.replace(/^\/(ro|en)/, '') || '/'
-  const locale = pathname.startsWith('/en') ? 'en' : 'ro'
+  const locale = pathname.startsWith('/en/') || pathname === '/en' ? 'en' : 'ro'
 
   // Check if path is public (no auth required)
   const isPublic = PUBLIC_PATHS.some((p) => pathWithoutLocale.startsWith(p))
@@ -90,7 +90,7 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users away from protected routes
   if (!user && !isPublic) {
     const url = request.nextUrl.clone()
-    url.pathname = `/${locale}/login`
+    url.pathname = locale === 'ro' ? `/login` : `/${locale}/login`
     url.searchParams.set('redirectTo', pathname)
     return NextResponse.redirect(url)
   }
@@ -98,7 +98,7 @@ export async function middleware(request: NextRequest) {
   // Redirect authenticated users away from auth pages
   if (user && (pathWithoutLocale === '/login' || pathWithoutLocale === '/register')) {
     const url = request.nextUrl.clone()
-    url.pathname = `/${locale}/dashboard`
+    url.pathname = locale === 'ro' ? `/dashboard` : `/${locale}/dashboard`
     return NextResponse.redirect(url)
   }
 

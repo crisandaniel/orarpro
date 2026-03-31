@@ -13,7 +13,7 @@ import { defineRouting } from 'next-intl/routing'
 export const routing = defineRouting({
   locales: ['ro', 'en'],
   defaultLocale: 'ro',
-  localePrefix: 'always',
+  localePrefix: 'as-needed',
   // Don't detect locale from browser Accept-Language header
   // Always use defaultLocale ('ro') when no prefix in URL
   localeDetection: false,
