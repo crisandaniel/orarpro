@@ -252,7 +252,7 @@ export interface SchoolResources {
 // SoftRules — stocate ca jsonb în schedule_configs
 export interface SoftRules {
   avoidGapsForTeachers?:       boolean
-  avoidLastHourForStages?:     ClassStage[]
+  avoidLastHourForStages?:     ClassStage[] | false
   avoidSameSubjectTwicePerDay?: boolean
   hardSubjectsMorning?:        boolean
   startFromFirstSlot?:         boolean

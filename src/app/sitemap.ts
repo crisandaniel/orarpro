@@ -1,6 +1,7 @@
-export default function robots() {
-  return {
-    rules: { userAgent: '*', allow: '/', disallow: ['/dashboard', '/api/'] },
-    sitemap: 'https://www.orarpro.ro/sitemap.xml',
-  }
+export default function sitemap() {
+  return [
+    { url: 'https://www.orarpro.ro/ro', lastModified: new Date() },
+    { url: 'https://www.orarpro.ro/en', lastModified: new Date() },
+    { url: 'https://www.orarpro.ro/ro/contact', lastModified: new Date() },
+  ]
 }
