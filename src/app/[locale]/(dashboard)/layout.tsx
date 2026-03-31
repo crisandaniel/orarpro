@@ -21,10 +21,10 @@ export default async function DashboardLayout({
   const supabase = await createServerSupabaseClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/${locale}/login`)
+  if (!user) redirect(locale === 'ro' ? '/login' : `/${locale}/login`)
 
   const ctx = await getOrgContext(user.id)
-  if (!ctx) redirect(`/${locale}/setup`)
+  if (!ctx) redirect(locale === 'ro' ? '/setup' : `/${locale}/setup`)
 
   const trialDays = trialDaysRemaining(ctx.org.trial_ends_at)
   const trialActive = isTrialActive(ctx.org.trial_ends_at)

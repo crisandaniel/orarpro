@@ -3,7 +3,7 @@ export default function robots() {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/dashboard/', '/api/'],  // ← trailing slash e mai corect
+      disallow: ['/dashboard/', '/api/'],
     },
     sitemap: 'https://www.orarpro.ro/sitemap.xml',
   }

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { OrgSwitcher } from '@/components/shared/OrgSwitcher'
 import type { OrgContextData } from '@/types'
+import { Link } from '@/lib/i18n/navigation'
 
 interface Props {
   ctx: OrgContextData
@@ -23,15 +24,16 @@ export function SidebarNav({ ctx, locale }: Props) {
   const pathname = usePathname()
   const { org } = ctx
   const isEducation = org.org_type === 'education'
+  const localePath = (path: string) => locale === 'ro' ? path : `/${locale}${path}`
 
   const links = [
-    { href: `/${locale}/dashboard`,  label: t('dashboard'), icon: LayoutDashboard },
-    { href: `/${locale}/schedules`,  label: t('schedules'), icon: Calendar },
+    { href: localePath('/dashboard'),  label: t('dashboard'), icon: LayoutDashboard },
+    { href: localePath('/schedules'),  label: t('schedules'), icon: Calendar },
     isEducation
-      ? { href: `/${locale}/resources`, label: t('resources'), icon: School }
-      : { href: `/${locale}/employees`, label: t('employees'), icon: Users },
-    { href: `/${locale}/settings`,   label: t('settings'),  icon: Settings },
-    { href: `/${locale}/feedback`,   label: t('contact'),   icon: MessageSquare },
+      ? { href: localePath('/resources'), label: t('resources'), icon: School }
+      : { href: localePath('/employees'), label: t('employees'), icon: Users },
+    { href: localePath('/settings'),   label: t('settings'),  icon: Settings },
+    { href: localePath('/feedback'),   label: t('contact'),   icon: MessageSquare },
   ]
 
   function handleLogout() {
@@ -100,6 +102,33 @@ export function SidebarNav({ ctx, locale }: Props) {
           <LogOut className="w-4 h-4 shrink-0" />
           Deconectare
         </button>
+        <div className="flex items-center gap-1 px-3 py-1 mt-1">
+        <Link
+          href="/"
+          locale="ro"
+          className="text-xs px-2 py-0.5 rounded"
+          style={{
+            background: locale === 'ro' ? '#eff6ff' : 'transparent',
+            color: locale === 'ro' ? '#1d4ed8' : '#9ca3af',
+            fontWeight: locale === 'ro' ? 600 : 400,
+          }}
+          >
+            RO
+          </Link>
+          <span style={{ color: '#e5e7eb' }}>|</span>
+          <Link
+            href="/"
+            locale="en"
+            className="text-xs px-2 py-0.5 rounded"
+            style={{
+              background: locale === 'en' ? '#eff6ff' : 'transparent',
+              color: locale === 'en' ? '#1d4ed8' : '#9ca3af',
+              fontWeight: locale === 'en' ? 600 : 400,
+            }}
+          >
+            EN
+          </Link>
+        </div>
       </div>
     </aside>
   )
