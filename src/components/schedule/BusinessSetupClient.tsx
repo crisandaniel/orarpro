@@ -57,6 +57,8 @@ interface Props {
   shiftDefs:          ShiftDefinition[]   // ture existente din schedule_shifts
   initialAssignments: any[]               // asignări existente cu joins (ca la school existingLessons)
   locale:             string
+  holidays?:           any[]
+  existingGenerationConfig?: any
 }
 
 const SHIFT_COLORS = ['#10b981','#6366f1','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#ec4899','#84cc16']
@@ -86,7 +88,7 @@ let draftCounter = 100
 
 export function BusinessSetupClient({
   schedule, employees, shiftDefs: initialShiftDefs,
-  initialAssignments, locale,
+  initialAssignments, locale, holidays = [], existingGenerationConfig
 }: Props) {
 
   // DEBUG
