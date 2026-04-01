@@ -5,6 +5,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createServerSupabaseClient, createAdminClient } from '@/lib/supabase/server'
 import { getOrgContext } from '@/lib/dal/org'
 import { getSchoolResources, getScheduleConfig, getCurriculumItems, getLessons } from '@/lib/dal/school'
+import { getHolidaysInRange } from '@/lib/holidays'
 import { SchoolSetupClient } from '@/components/schedule/SchoolSetupClient'
 
 interface Props { params: Promise<{ id: string; locale: string }> }
@@ -21,7 +22,7 @@ export default async function SchoolSetupPage({ params }: Props) {
   const admin = createAdminClient()
 
   const { data: schedule } = await admin
-    .from('schedules').select('id, name')
+    .from('schedules').select('id, name, start_date, end_date, country_code, include_holidays')
     .eq('id', id).eq('organization_id', ctx.org.id).single()
   if (!schedule) notFound()
 
@@ -29,11 +30,12 @@ export default async function SchoolSetupPage({ params }: Props) {
   const { data: orgData } = await admin
     .from('organizations').select('days_per_week, slots_per_day').eq('id', ctx.org.id).single()
 
-  const [resources, config, curriculum, lessons] = await Promise.all([
+  const [resources, config, curriculum, lessons, holidays] = await Promise.all([
     getSchoolResources(ctx.org.id),
     getScheduleConfig(id),
     getCurriculumItems(id),
     getLessons(id),
+    getHolidaysInRange(schedule.country_code, schedule.start_date, schedule.end_date),
   ])
 
   return (
@@ -48,6 +50,8 @@ export default async function SchoolSetupPage({ params }: Props) {
       existingSolverUsed={(config as any)?.solver_used ?? undefined}
       daysPerWeek={orgData?.days_per_week ?? 5}
       slotsPerDay={orgData?.slots_per_day ?? 8}
+      holidays={holidays}
+      scheduleStartDate={schedule.start_date}
     />
   )
 }

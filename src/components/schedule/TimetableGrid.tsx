@@ -9,6 +9,8 @@
 // Used by: SchoolSetupClient (inline) + schedules/[id]/page.tsx
 
 import { useState, useMemo } from 'react'
+import { addDays, format, parseISO, startOfISOWeek } from 'date-fns'
+import type { PublicHoliday } from '@/lib/holidays'
 import { Printer } from 'lucide-react'
 
 interface Teacher  { id: string; name: string; color: string }
@@ -33,6 +35,8 @@ interface Props {
   firstPeriodStart: string; workingDays: number[]
   scheduleId: string; locale: string
   solverUsed?: string   // 'greedy' | 'cp-sat (OPTIMAL)' | undefined
+  holidays?: PublicHoliday[]
+  scheduleStartDate?: string  // 'yyyy-MM-dd' — pentru a calcula date exacte
 }
 
 const DAY_NAMES = ['Lun','Mar','Mie','Joi','Vin','Sâm','Dum']
@@ -50,8 +54,26 @@ type FilterMode = 'class' | 'teacher' | 'room'
 export function TimetableGrid({
   lessons, teachers, subjects, classes, rooms,
   periodsPerDay, periodDuration, firstPeriodStart, workingDays,
-  scheduleId, locale, solverUsed,
+  scheduleId, locale, solverUsed, holidays = [], scheduleStartDate,
 }: Props) {
+  // Map day-index → holiday name, bazat pe scheduleStartDate
+  // day 0 = prima zi lucrătoare din săptămâna de start
+  const holidayByDay = useMemo(() => {
+    if (!scheduleStartDate || !holidays.length) return {}
+    const holidaySet = new Set(holidays.map(h => h.date))
+    const holidayNames: Record<string, string> = {}
+    holidays.forEach(h => { holidayNames[h.date] = h.name })
+    const result: Record<number, string> = {}
+    // days sunt indici 0-based (0=Lun..6=Dum)
+    // Găsim prima săptămână din schedule și verificăm ce zile sunt sărbători
+    const start = parseISO(scheduleStartDate)
+    for (let d = 0; d < 7; d++) {
+      const date = format(addDays(start, d), 'yyyy-MM-dd')
+      if (holidaySet.has(date)) result[d] = holidayNames[date]
+    }
+    return result
+  }, [holidays, scheduleStartDate])
+
   const [filterMode, setFilterMode] = useState<FilterMode>('class')
   const [filterId, setFilterId]     = useState<string>(classes[0]?.id ?? '')
 
@@ -193,11 +215,24 @@ export function TimetableGrid({
               <th style={{ padding: '8px 12px', textAlign: 'left', fontSize: '11px', fontWeight: 500, color: '#9ca3af', minWidth: '80px', borderBottom: '1px solid #e5e7eb' }}>
                 Ora
               </th>
-              {days.map(d => (
-                <th key={d} style={{ padding: '8px 10px', textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#111827', borderBottom: '1px solid #e5e7eb', borderLeft: '0.5px solid #f0f0f0' }}>
-                  {DAY_NAMES[d]}
-                </th>
-              ))}
+              {days.map(d => {
+                const holidayName = holidayByDay[d]
+                return (
+                  <th key={d} style={{
+                    padding: '8px 10px', textAlign: 'center', fontSize: '12px', fontWeight: 600,
+                    color: holidayName ? '#b45309' : '#111827',
+                    background: holidayName ? '#fffbeb' : undefined,
+                    borderBottom: '1px solid #e5e7eb', borderLeft: '0.5px solid #f0f0f0',
+                  }}>
+                    {DAY_NAMES[d]}
+                    {holidayName && (
+                      <div style={{ fontSize: '10px', fontWeight: 400, color: '#d97706', marginTop: '2px' }}>
+                        {holidayName}
+                      </div>
+                    )}
+                  </th>
+                )
+              })}
             </tr>
           </thead>
           <tbody>

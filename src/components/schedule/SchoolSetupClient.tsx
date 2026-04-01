@@ -37,12 +37,15 @@ interface Props {
   existingSolverUsed?: string
   daysPerWeek?:        number
   slotsPerDay?:        number
+  holidays?:           any[]
+  scheduleStartDate?:  string
 }
 
 export function SchoolSetupClient({
   scheduleId, scheduleName, locale, resources,
   existingConfig, existingCurriculum = [], existingLessons = [],
   existingSolverUsed, daysPerWeek = 5, slotsPerDay = 8,
+  holidays = [], scheduleStartDate,
 }: Props) {
   const { teachers, subjects, classes, rooms } = resources
 
@@ -262,6 +265,8 @@ export function SchoolSetupClient({
             firstPeriodStart={firstSlot}
             workingDays={Array.from({ length: days }, (_, i) => i)}
             scheduleId={scheduleId} locale={locale}
+            holidays={holidays}
+            scheduleStartDate={scheduleStartDate}
           />
         </div>
       )}
