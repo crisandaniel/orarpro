@@ -115,7 +115,7 @@ export default async function LandingPage({
       </section>
 
       {/* Pricing */}
-      <section className="max-w-4xl mx-auto px-8 py-16">
+      {/* <section className="max-w-4xl mx-auto px-8 py-16">
         <div className="text-center mb-12">
           <h2 className="text-2xl font-medium mb-2" style={{ color: '#111827' }}>Prețuri simple</h2>
           <p className="text-sm" style={{ color: '#6b7280' }}>Fără contracte. Anulezi oricând.</p>
@@ -159,7 +159,7 @@ export default async function LandingPage({
             </div>
           ))}
         </div>
-      </section>
+      </section> */}
 
       {/* Footer */}
       <footer className="border-t px-8 py-6 max-w-6xl mx-auto flex items-center justify-between"
