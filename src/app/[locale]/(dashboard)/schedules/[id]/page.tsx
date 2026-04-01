@@ -1,8 +1,9 @@
 // Schedule view page — server component using DAL.
-// Routes based on schedule type:
-//   type='school' + draft/generating → redirect to school-setup
-//   type='school' + generated/published → show timetable
-//   type='shifts' → show shift schedule view
+// Routes:
+//   school + draft/generating → school-setup
+//   school + generated/published → SchoolScheduleView
+//   shifts + draft/generating → business-setup
+//   shifts + generated/published → ScheduleView cu buton "← Modifică turele"
 
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
@@ -15,36 +16,37 @@ import { format } from 'date-fns'
 import { ScheduleView } from '@/components/schedule/ScheduleView'
 import { ScheduleActions } from '@/components/schedule/ScheduleActions'
 import { AISuggestionsPanel } from '@/components/schedule/AISuggestionsPanel'
-import { ConstraintsPanel } from '@/components/schedule/ConstraintsPanel'
 import { TimetableGrid } from '@/components/schedule/TimetableGrid'
 
 interface Props { params: Promise<{ id: string; locale: string }> }
 
 export default async function ScheduleViewPage({ params }: Props) {
   const { id, locale } = await params
+  const lp = (p: string) => locale === 'ro' ? p : `/${locale}${p}`
+
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect(`/${locale}/login`)
+  if (!user) redirect(lp('/login'))
 
   const ctx = await getOrgContext(user.id)
-  if (!ctx) redirect(`/${locale}/setup`)
+  if (!ctx) redirect(lp('/setup'))
 
-  const { schedule, assignments, shiftDefs, scheduleShifts, constraints } =
-    await getScheduleWithData(id, ctx.org.id)
-
+  const { schedule, assignments, shiftDefs } = await getScheduleWithData(id, ctx.org.id)
   if (!schedule) notFound()
 
-  // ── School schedule routing ───────────────────────────────────────────────
+  // ── School ────────────────────────────────────────────────────────────────
   if (schedule.type === 'school') {
-    const isDraft = schedule.status === 'draft' || schedule.status === 'generating'
-    if (isDraft) {
+    if (schedule.status === 'draft' || schedule.status === 'generating') {
       redirect(`/${locale}/schedules/${id}/school-setup`)
     }
-    // Generated/published → show timetable
     return <SchoolScheduleView schedule={schedule} scheduleId={id} locale={locale} orgId={ctx.org.id} />
   }
 
-  // ── Shifts schedule ───────────────────────────────────────────────────────
+  // ── Shifts ────────────────────────────────────────────────────────────────
+  if (schedule.status === 'draft' || schedule.status === 'generating') {
+    redirect(lp(`/schedules/${id}/business-setup`))
+  }
+
   const [employees, holidays] = await Promise.all([
     getEmployees(ctx.org.id),
     getHolidaysInRange(schedule.country_code, schedule.start_date, schedule.end_date),
@@ -64,7 +66,15 @@ export default async function ScheduleViewPage({ params }: Props) {
             {' · '}{employees.length} {employees.length === 1 ? 'angajat' : 'angajați'}
           </p>
         </div>
-        <ScheduleActions scheduleId={id} status={schedule.status} locale={locale} />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Link
+            href={lp(`/schedules/${id}/business-setup`)}
+            style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px',
+              border: '0.5px solid #d1d5db', color: '#374151', background: '#fff', textDecoration: 'none' }}>
+            ← Modifică turele
+          </Link>
+          <ScheduleActions scheduleId={id} status={schedule.status} locale={locale} />
+        </div>
       </div>
 
       {/* Print title */}
@@ -76,18 +86,6 @@ export default async function ScheduleViewPage({ params }: Props) {
           {' · '}{employees.length} angajați
         </p>
       </div>
-
-      {shiftDefs.length === 0 && (
-        <div className="mb-4 p-4 rounded-xl text-sm print-hide flex items-center justify-between"
-          style={{ background: '#fffbeb', border: '0.5px solid #fde68a', color: '#92400e' }}>
-          <span>⚠️ Nicio tură definită pentru acest orar.</span>
-          <Link href={`/${locale}/schedules/${id}/setup`}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-            style={{ background: '#d97706' }}>
-            Configurează turele →
-          </Link>
-        </div>
-      )}
 
       <div className="flex gap-6">
         <div className="flex-1 min-w-0">
@@ -105,17 +103,6 @@ export default async function ScheduleViewPage({ params }: Props) {
             <AISuggestionsPanel suggestions={aiSuggestions} />
           </div>
         )}
-      </div>
-
-      <div className="print-hide">
-        <ConstraintsPanel
-          scheduleId={id}
-          schedule={schedule as any}
-          initialConstraints={constraints as any}
-          employees={employees as any}
-          shiftDefinitions={shiftDefs as any}
-          scheduleShifts={scheduleShifts as any}
-        />
       </div>
     </div>
   )
@@ -140,12 +127,12 @@ async function SchoolScheduleView({ schedule, scheduleId, locale, orgId }: {
     admin.from('school_configs').select('*').eq('schedule_id', scheduleId).single(),
   ])
 
-  const lessons   = lessonsRes.data ?? []
-  const teachers  = teachersRes.data ?? []
-  const subjects  = subjectsRes.data ?? []
-  const classes   = classesRes.data ?? []
-  const rooms     = roomsRes.data ?? []
-  const config    = configRes.data
+  const lessons  = lessonsRes.data ?? []
+  const teachers = teachersRes.data ?? []
+  const subjects = subjectsRes.data ?? []
+  const classes  = classesRes.data ?? []
+  const rooms    = roomsRes.data ?? []
+  const config   = configRes.data
 
   return (
     <div>
@@ -160,7 +147,8 @@ async function SchoolScheduleView({ schedule, scheduleId, locale, orgId }: {
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <Link href={`/${locale}/schedules/${scheduleId}/school-setup`}
-            style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px', border: '0.5px solid #d1d5db', color: '#374151', background: '#fff', textDecoration: 'none' }}>
+            style={{ padding: '8px 14px', borderRadius: '8px', fontSize: '13px',
+              border: '0.5px solid #d1d5db', color: '#374151', background: '#fff', textDecoration: 'none' }}>
             ← Modifică asignările
           </Link>
           <ScheduleActions scheduleId={scheduleId} status={schedule.status} locale={locale} />
