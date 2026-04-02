@@ -1,9 +1,12 @@
 'use client'
 
 export function WhatsAppFloat() {
+  const text = encodeURIComponent("Salut! Vreau mai multe detalii despre orare.");
+  const href = `https://wa.me/40723523515?text=${text}`;
+
   return (
     <a
-      href="https://wa.me/40723523515"
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       title="Contact WhatsApp"
