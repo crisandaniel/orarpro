@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from 'next-intl'
 import { getMessages } from 'next-intl/server'
 import { ThemeProvider } from 'next-themes'
 import '../globals.css'
+import { WhatsAppFloat } from '@/components/shared/WhatsAppFloat'
 
 interface LocaleLayoutProps {
   children: React.ReactNode
@@ -20,7 +21,9 @@ export default async function LocaleLayout({ children, params }: LocaleLayoutPro
     <NextIntlClientProvider locale={locale} messages={messages}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         {children}
+        <WhatsAppFloat />
       </ThemeProvider>
     </NextIntlClientProvider>
+
   )
 }
